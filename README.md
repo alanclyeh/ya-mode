@@ -1,0 +1,3 @@
+# ya-mode
+ya-mode is my AI agent working mode, a simplified version of poteto-mode.
+Work in progress...
