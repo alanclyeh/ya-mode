@@ -1,0 +1,27 @@
+diff --git a/src/money.js b/src/money.js
+index 0fc432b..2ba5a6b 100644
+--- a/src/money.js
++++ b/src/money.js
+@@ -1,5 +1,5 @@
+ export function toCents(amount) {
+-  return Math.floor(parseFloat(amount) * 100);
++  return Math.round(parseFloat(amount) * 100);
+ }
+ 
+ export function formatCents(cents) {
+diff --git a/test/import.test.js b/test/import.test.js
+index ef01fe8..28461b1 100644
+--- a/test/import.test.js
++++ b/test/import.test.js
+@@ -19,3 +19,11 @@ test("percent and fixed discounts", () => {
+   assert.equal(applyDiscount(2000, parseDiscount("5")), 1500);
+   assert.equal(applyDiscount(300, parseDiscount("5")), 0);
+ });
++
++test("a 19.99 price keeps its last cent", () => {
++  assert.deepEqual(parseOrderCsv("sku,qty,price\nA-1,1,19.99\n"), [{ sku: "A-1", qty: 1, unitCents: 1999 }]);
++});
++
++test("a fixed discount takes off its exact amount", () => {
++  assert.equal(applyDiscount(2000, parseDiscount("4.35")), 1565);
++});

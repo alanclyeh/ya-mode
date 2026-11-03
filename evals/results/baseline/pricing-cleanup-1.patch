@@ -1,0 +1,213 @@
+diff --git a/scripts/pricing-equivalence.mjs b/scripts/pricing-equivalence.mjs
+new file mode 100644
+index 0000000..b16e0b2
+--- /dev/null
++++ b/scripts/pricing-equivalence.mjs
+@@ -0,0 +1,71 @@
++import { execFileSync } from "node:child_process";
++import { mkdtempSync, writeFileSync } from "node:fs";
++import { tmpdir } from "node:os";
++import { join, resolve } from "node:path";
++import { pathToFileURL } from "node:url";
++
++const [ref = "HEAD", candidate = "src/pricing.js"] = process.argv.slice(2);
++const baselineFile = join(mkdtempSync(join(tmpdir(), "pricing-")), "pricing.mjs");
++writeFileSync(baselineFile, execFileSync("git", ["show", `${ref}:src/pricing.js`]));
++const baseline = await import(pathToFileURL(baselineFile));
++const current = await import(pathToFileURL(resolve(candidate)));
++
++const types = ["product", "service", "subscription", "", "unknown", "Product", "constructor", "toString", "__proto__", undefined];
++const customers = [undefined, null, 0, {}, { tier: "gold" }, { tier: "silver" }, { tier: "bronze" }, { tier: "Gold" }, { tier: "constructor" }, { tier: "__proto__" }];
++const units = [0, 1, 7, 13, 333, 1000, 1999, 12345, 99999, -500, 0.5, 2.5];
++const amounts = [undefined, -1, 0, 0.5, 1, 2, 3, 9, 10, 11, 12, 13, 24, 100];
++const taxables = [undefined, true, false, 0, null, "false"];
++
++function outcome(fn, ...args) {
++  try {
++    return { value: fn(...args) };
++  } catch (error) {
++    return { error: String(error.message) };
++  }
++}
++
++function same(a, b) {
++  return "error" in a ? a.error === b.error : Object.is(a.value, b.value);
++}
++
++let cases = 0;
++let failed = 0;
++const mismatches = [];
++function check(line, customer) {
++  cases++;
++  const want = outcome(baseline.lineTotal, line, customer);
++  const got = outcome(current.lineTotal, line, customer);
++  if (!same(want, got) && failed++ < 10) mismatches.push({ line, customer, want, got });
++}
++
++for (const type of types)
++  for (const customer of customers)
++    for (const unitCents of units)
++      for (const n of amounts)
++        for (const taxable of taxables) {
++          check({ type, unitCents, qty: n, hours: n, months: n, taxable }, customer);
++          check({ type, unitCents, qty: n, hours: n + 3, months: n + 11, taxable }, customer);
++        }
++
++let seed = 1;
++const pick = (list) => list[(seed = (seed * 48271) % 2147483647) % list.length];
++const invoices = [];
++for (let i = 0; i < 2000; i++) {
++  const lines = Array.from({ length: 1 + (i % 5) }, () => ({
++    type: pick(types.slice(0, 3)), unitCents: pick(units), qty: pick(amounts), hours: pick(amounts), months: pick(amounts), taxable: pick(taxables),
++  }));
++  invoices.push([lines, pick(customers)]);
++}
++for (const [lines, customer] of invoices) {
++  cases++;
++  const want = outcome(baseline.invoiceTotal, lines, customer);
++  const got = outcome(current.invoiceTotal, lines, customer);
++  if (!same(want, got) && failed++ < 10) mismatches.push({ lines, customer, want, got });
++}
++
++if (failed) {
++  console.log(JSON.stringify(mismatches, null, 1));
++  console.log(`MISMATCH vs ${ref}: ${failed} of ${cases} cases differ, first ${mismatches.length} shown`);
++  process.exit(1);
++}
++console.log(`equivalent to ${ref} on ${cases} cases`);
+diff --git a/src/pricing.js b/src/pricing.js
+index d599c5a..c3fb7fa 100644
+--- a/src/pricing.js
++++ b/src/pricing.js
+@@ -1,49 +1,44 @@
++const TAX_RATE = 0.08;
++
++const LINE_TYPES = new Map([
++  ["product", {
++    quantity: "qty",
++    tierRates: new Map([["gold", 0.1], ["silver", 0.05]]),
++    volume: { minQuantity: 10, rate: 0.05, replacesTier: false },
++    taxed: true,
++  }],
++  ["service", {
++    quantity: "hours",
++    tierRates: new Map([["gold", 0.1], ["silver", 0.05]]),
++    volume: null,
++    taxed: false,
++  }],
++  ["subscription", {
++    quantity: "months",
++    tierRates: new Map([["gold", 0.1]]),
++    volume: { minQuantity: 12, rate: 0.15, replacesTier: true },
++    taxed: true,
++  }],
++]);
++
++function discountRates(rules, quantity, tier) {
++  const tierRate = rules.tierRates.get(tier);
++  const tierRates = tierRate === undefined ? [] : [tierRate];
++  const { volume } = rules;
++  if (!volume || quantity < volume.minQuantity) return tierRates;
++  return volume.replacesTier ? [volume.rate] : [...tierRates, volume.rate];
++}
++
+ export function lineTotal(line, customer) {
+-  let total = 0;
+-  if (line.type === "product") {
+-    if (customer && customer.tier === "gold") {
+-      total = line.unitCents * line.qty;
+-      total = total - Math.round(total * 0.1);
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    } else if (customer && customer.tier === "silver") {
+-      total = line.unitCents * line.qty;
+-      total = total - Math.round(total * 0.05);
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    } else {
+-      total = line.unitCents * line.qty;
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    }
+-    if (line.taxable !== false) {
+-      total = total + Math.round(total * 0.08);
+-    }
+-  } else if (line.type === "service") {
+-    if (customer && customer.tier === "gold") {
+-      total = line.unitCents * line.hours;
+-      total = total - Math.round(total * 0.1);
+-    } else if (customer && customer.tier === "silver") {
+-      total = line.unitCents * line.hours;
+-      total = total - Math.round(total * 0.05);
+-    } else {
+-      total = line.unitCents * line.hours;
+-    }
+-  } else if (line.type === "subscription") {
+-    total = line.unitCents * line.months;
+-    if (line.months >= 12) {
+-      total = total - Math.round(total * 0.15);
+-    } else if (customer && customer.tier === "gold") {
+-      total = total - Math.round(total * 0.1);
+-    }
+-    if (line.taxable !== false) {
+-      total = total + Math.round(total * 0.08);
+-    }
+-  } else {
+-    throw new Error("unknown line type: " + line.type);
++  const rules = LINE_TYPES.get(line.type);
++  if (!rules) throw new Error("unknown line type: " + line.type);
++  const quantity = line[rules.quantity];
++  let total = line.unitCents * quantity;
++  for (const rate of discountRates(rules, quantity, customer?.tier)) {
++    total = total - Math.round(total * rate);
++  }
++  if (rules.taxed && line.taxable !== false) {
++    total = total + Math.round(total * TAX_RATE);
+   }
+   return total;
+ }
+diff --git a/test/pricing.test.js b/test/pricing.test.js
+index e421a14..6716c59 100644
+--- a/test/pricing.test.js
++++ b/test/pricing.test.js
+@@ -10,6 +10,37 @@ test("gold customers get ten percent off products", () => {
+   assert.equal(lineTotal({ type: "product", unitCents: 1000, qty: 1, taxable: false }, { tier: "gold" }), 900);
+ });
+ 
++const gold = { tier: "gold" };
++const silver = { tier: "silver" };
++
++for (const [name, line, customer, cents] of [
++  ["silver product volume discount stacks on the tier discount", { type: "product", unitCents: 1000, qty: 10, taxable: false }, silver, 9025],
++  ["gold product with volume discount and tax", { type: "product", unitCents: 1000, qty: 10 }, gold, 9234],
++  ["volume discount without a tier", { type: "product", unitCents: 1000, qty: 10, taxable: false }, undefined, 9500],
++  ["gold service", { type: "service", unitCents: 5000, hours: 2 }, gold, 9000],
++  ["silver service", { type: "service", unitCents: 5000, hours: 2 }, silver, 9500],
++  ["services get no volume discount and no tax", { type: "service", unitCents: 1000, hours: 20 }, undefined, 20000],
++  ["gold subscription under a year", { type: "subscription", unitCents: 1000, months: 11, taxable: false }, gold, 9900],
++  ["annual discount replaces the gold discount", { type: "subscription", unitCents: 1000, months: 12, taxable: false }, gold, 10200],
++  ["silver gets nothing off subscriptions", { type: "subscription", unitCents: 1000, months: 6, taxable: false }, silver, 6000],
++  ["annual subscription is taxed after the discount", { type: "subscription", unitCents: 1000, months: 12 }, undefined, 11016],
++]) {
++  test(name, () => {
++    assert.equal(lineTotal(line, customer), cents);
++  });
++}
++
++test("unknown line types are rejected", () => {
++  assert.throws(() => lineTotal({ type: "bundle", unitCents: 1000 }), /unknown line type: bundle/);
++  assert.throws(() => lineTotal({ type: "constructor", unitCents: 1000 }), /unknown line type: constructor/);
++});
++
++test("tiers named after object keys get no discount", () => {
++  const line = { type: "service", unitCents: 1000, hours: 1 };
++  assert.equal(lineTotal(line, { tier: "constructor" }), 1000);
++  assert.equal(lineTotal(line, { tier: "__proto__" }), 1000);
++});
++
+ test("invoice sums its lines", () => {
+   const lines = [
+     { type: "product", unitCents: 1000, qty: 1, taxable: false },
