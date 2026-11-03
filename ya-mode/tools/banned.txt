@@ -1,0 +1,5 @@
+# Skill names that must not be referenced anywhere in skills/.
+poteto-mode
+poteto-agent
+poteto-help
+setup-pstack

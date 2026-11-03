@@ -1,0 +1,11 @@
+{
+  "name": "ya-local",
+  "owner": { "name": "alan.yeh" },
+  "plugins": [
+    {
+      "name": "ya",
+      "source": "./ya-mode",
+      "description": "ya-mode: routed playbooks, leaf skills, and principles for verified, simple code."
+    }
+  ]
+}

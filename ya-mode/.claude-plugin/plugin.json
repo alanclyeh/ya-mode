@@ -1,0 +1,8 @@
+{
+  "name": "ya",
+  "displayName": "ya",
+  "version": "0.1.0",
+  "description": "A personal fork of pstack's poteto-mode for Claude Code: routed playbooks, leaf skills, and principles for verified, simple code. Original pstack by Lauren Tan (poteto), Claude Code port by Michael Denyer.",
+  "license": "MIT",
+  "keywords": ["ya-mode", "poteto-mode", "pstack", "workflow", "principles", "skills"]
+}
