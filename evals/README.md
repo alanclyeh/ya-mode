@@ -22,7 +22,7 @@ sh evals/run.sh <label> ya-mode [runs] [task...]    # default: 2 runs of every t
 
 `MODEL` (default `opus`) and `BUDGET` (USD per run, default 20) override the defaults. Tasks run in parallel. A task's repeat runs go one after another.
 
-Each run uses `--setting-sources project,local`, so the user's own plugins and hooks stay out and only the plugin under test loads. `~/.claude/CLAUDE.md` still loads, so the model sheet in `ya-models.md` applies. Permissions run in `auto` mode on top of the allowlist in `run.sh`. A `dontAsk` allowlist alone refused compound shell commands such as `cd x && npm test`, which left runs uncommitted, so a nonzero `denials` column marks a run the harness disturbed.
+Each run uses `--setting-sources project,local`, so the user's own plugins and hooks stay out and only the plugin under test loads. `~/.claude/CLAUDE.md` stays out too, so `ya-models.md` does not apply and roles run on the defaults in the plugin's own skills. Permissions run in `auto` mode on top of the allowlist in `run.sh`. A `dontAsk` allowlist alone refused compound shell commands such as `cd x && npm test`, which left runs uncommitted, so a nonzero `denials` column marks a run the harness disturbed.
 
 ## Results
 
