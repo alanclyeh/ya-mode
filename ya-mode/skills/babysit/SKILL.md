@@ -7,7 +7,7 @@ description: Watch an open PR — fix failing CI, handle the straightforward rev
 
 The implementation is a loop over `gh` CLI plus the Claude Code `loop` skill for pacing.
 
-Inside ya-mode, the **Babysit** playbook ([`../ya-mode/playbooks/babysit.md`](../ya-mode/playbooks/babysit.md)) supersedes this skill: it owns mode declaration, the merge frontier, stack safety, and the `watch-pr` watcher. This skill stays the standalone `/babysit` entry point for a single PR outside a ya-mode run.
+Inside ya-mode, the **Babysit** playbook ([`../ya-mode/playbooks/babysit.md`](../ya-mode/playbooks/babysit.md)) supersedes this skill: it owns mode declaration, the merge frontier, and stack safety. This skill stays the standalone `/babysit` entry point for a single PR outside a ya-mode run.
 
 ## When to use
 

@@ -16,11 +16,10 @@ claude --plugin-dir /Users/alan.yeh/Workspace/my_projects/ya_mode/ya-mode
 
 ## Layout
 
-- `skills/ya-mode/` is the entry skill. `playbooks/` holds one file per task type, `references/` the shared references, `scripts/` the bun tooling for PR watching, shipping, orchestration, and resume.
+- `skills/ya-mode/` is the entry skill. `playbooks/` holds one file per task type, `references/` the shared references, `scripts/` the node tooling for resume, plan and playbook checks, and worktree audits.
 - `skills/principle-*/` are the principles ya-mode cites.
 - The other `skills/*/` are leaf skills, including `python-best-practices`, `react-best-practices`, and `node-best-practices`, and the Chinese writing rules in `skills/unslop/references/zh.md`.
 - `agents/` holds the subagent definitions, with `ya:ya-agent` as the delegate.
-- `hooks/gate.sh` is an optional Stop hook that runs the commands in a project's `.ya-gates`. It is not registered.
 - `tools/refgraph.mjs` maps skill references (`edges`, `closure <root>`) and checks for banned names and broken relative links (`check`).
 
 ## Check
@@ -29,12 +28,11 @@ claude --plugin-dir /Users/alan.yeh/Workspace/my_projects/ya_mode/ya-mode
 sh tests/check.sh
 ```
 
-Script tests, after `bun install` in each scripts directory:
+Script tests, after `npm install` in the statechart scripts directory:
 
 ```sh
-(cd skills/ya-mode/scripts && bun run test && bun run typecheck)
 bun test tests/scripts
 (cd skills/statechart/scripts && npm test)
 ```
 
-`tests/scripts/` covers `resume.mjs`, `check-playbooks.mjs`, `check-plan`, `log.sh`, `find-transcript.mjs`, and the merge-safety reference. The statechart TLC tests skip unless `TLA2TOOLS` points at `tla2tools.jar`. `worktree-audit.mjs` has no test here.
+`tests/scripts/` covers `resume.mjs`, `check-playbooks.mjs`, `check-plan`, `log.sh`, and `find-transcript.mjs`. The statechart TLC tests skip unless `TLA2TOOLS` points at `tla2tools.jar`. `worktree-audit.mjs` has no test here.
