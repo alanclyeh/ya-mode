@@ -1,0 +1,141 @@
+diff --git a/src/index.js b/src/index.js
+index afb19c5..5d503d9 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -2,3 +2,4 @@ export { toCents, formatCents } from "./money.js";
+ export { parseOrderCsv } from "./import.js";
+ export { parseDiscount, applyDiscount } from "./discount.js";
+ export { lineTotal, invoiceTotal } from "./pricing.js";
++export { nextBillingDates } from "./schedule.js";
+diff --git a/src/schedule.js b/src/schedule.js
+new file mode 100644
+index 0000000..496b558
+--- /dev/null
++++ b/src/schedule.js
+@@ -0,0 +1,49 @@
++const INTERVALS = Object.freeze({
++  weekly: Object.freeze({ days: 7 }),
++  monthly: Object.freeze({ months: 1 }),
++  yearly: Object.freeze({ months: 12 }),
++});
++
++const DAY_MS = 86400000;
++const MAX_YEAR = 9999;
++
++const isLeap = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
++const daysInMonth = (y, m) => (m === 2 ? (isLeap(y) ? 29 : 28) : [4, 6, 9, 11].includes(m) ? 30 : 31);
++
++function parseDate(text) {
++  const match = typeof text === "string" && /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
++  if (!match) throw new Error(`bad date: ${text}`);
++  const [year, month, day] = match.slice(1).map(Number);
++  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) throw new Error(`bad date: ${text}`);
++  return { year, month, day };
++}
++
++function formatDate({ year, month, day }) {
++  if (year > MAX_YEAR) throw new Error(`date out of range: year ${year}`);
++  return [String(year).padStart(4, "0"), String(month).padStart(2, "0"), String(day).padStart(2, "0")].join("-");
++}
++
++function addDays({ year, month, day }, days) {
++  const date = new Date(0);
++  date.setUTCFullYear(year, month - 1, day);
++  date.setTime(date.getTime() + days * DAY_MS);
++  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() };
++}
++
++function addMonths({ year, month, day }, months) {
++  const index = year * 12 + (month - 1) + months;
++  const y = Math.floor(index / 12);
++  const m = (index % 12) + 1;
++  return { year: y, month: m, day: Math.min(day, daysInMonth(y, m)) };
++}
++
++export function nextBillingDates(startDate, interval, count) {
++  const anchor = parseDate(startDate);
++  if (typeof interval !== "string" || !Object.hasOwn(INTERVALS, interval)) throw new Error(`bad interval: ${interval}`);
++  if (!Number.isInteger(count) || count < 0) throw new Error(`bad count: ${count}`);
++  const step = INTERVALS[interval];
++  return Array.from({ length: count }, (_, i) => {
++    const k = i + 1;
++    return formatDate(step.days ? addDays(anchor, k * step.days) : addMonths(anchor, k * step.months));
++  });
++}
+diff --git a/test/schedule.test.js b/test/schedule.test.js
+new file mode 100644
+index 0000000..bf0fb0b
+--- /dev/null
++++ b/test/schedule.test.js
+@@ -0,0 +1,71 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { nextBillingDates } from "../src/index.js";
++
++test("weekly steps seven days, crossing month and year", () => {
++  assert.deepEqual(nextBillingDates("2024-01-01", "weekly", 3), ["2024-01-08", "2024-01-15", "2024-01-22"]);
++  assert.deepEqual(nextBillingDates("2024-12-25", "weekly", 2), ["2025-01-01", "2025-01-08"]);
++  assert.deepEqual(nextBillingDates("2024-01-29", "weekly", 1), ["2024-02-05"]);
++});
++
++test("weekly crosses leap and common February", () => {
++  assert.deepEqual(nextBillingDates("2024-02-26", "weekly", 2), ["2024-03-04", "2024-03-11"]);
++  assert.deepEqual(nextBillingDates("2024-02-22", "weekly", 1), ["2024-02-29"]);
++  assert.deepEqual(nextBillingDates("2023-02-22", "weekly", 2), ["2023-03-01", "2023-03-08"]);
++});
++
++test("monthly on the 31st clamps to month end and returns to 31", () => {
++  assert.deepEqual(nextBillingDates("2023-01-31", "monthly", 4), ["2023-02-28", "2023-03-31", "2023-04-30", "2023-05-31"]);
++  assert.deepEqual(nextBillingDates("2024-01-31", "monthly", 2), ["2024-02-29", "2024-03-31"]);
++});
++
++test("monthly on the 30th and 29th through February", () => {
++  assert.deepEqual(nextBillingDates("2024-01-30", "monthly", 2), ["2024-02-29", "2024-03-30"]);
++  assert.deepEqual(nextBillingDates("2023-01-30", "monthly", 2), ["2023-02-28", "2023-03-30"]);
++  assert.deepEqual(nextBillingDates("2024-01-29", "monthly", 2), ["2024-02-29", "2024-03-29"]);
++  assert.deepEqual(nextBillingDates("2023-01-29", "monthly", 2), ["2023-02-28", "2023-03-29"]);
++});
++
++test("monthly crosses the year boundary", () => {
++  assert.deepEqual(nextBillingDates("2024-11-15", "monthly", 3), ["2024-12-15", "2025-01-15", "2025-02-15"]);
++});
++
++test("yearly on 2/29 bills 2/28 in common years and 2/29 in leap years", () => {
++  assert.deepEqual(nextBillingDates("2024-02-29", "yearly", 4), ["2025-02-28", "2026-02-28", "2027-02-28", "2028-02-29"]);
++  assert.deepEqual(nextBillingDates("2024-06-10", "yearly", 2), ["2025-06-10", "2026-06-10"]);
++});
++
++test("startDate is excluded and count 0 is empty", () => {
++  assert.deepEqual(nextBillingDates("2024-03-10", "monthly", 0), []);
++  assert.deepEqual(nextBillingDates("2024-03-10", "weekly", 1), ["2024-03-17"]);
++});
++
++test("small years are not remapped", () => {
++  assert.deepEqual(nextBillingDates("0050-01-31", "monthly", 1), ["0050-02-28"]);
++  assert.deepEqual(nextBillingDates("0050-12-31", "weekly", 1), ["0051-01-07"]);
++});
++
++test("bad start dates throw", () => {
++  for (const bad of [undefined, null, 20240101, new Date(), "2024-1-01", "2024/01/01", "2024-01-01T00:00", " 2024-01-01", "2023-02-29", "2024-13-01", "2024-04-31", "2024-00-10", "2024-01-00"]) {
++    assert.throws(() => nextBillingDates(bad, "weekly", 1), /bad date/, String(bad));
++  }
++});
++
++test("bad intervals throw, including inherited keys", () => {
++  for (const bad of ["daily", "", "Weekly", "toString", "constructor", "__proto__", undefined, 7]) {
++    assert.throws(() => nextBillingDates("2024-01-01", bad, 1), /bad interval/, String(bad));
++  }
++});
++
++test("bad counts throw", () => {
++  for (const bad of [-1, 1.5, NaN, Infinity, "3", null, undefined]) {
++    assert.throws(() => nextBillingDates("2024-01-01", "weekly", bad), /bad count/, String(bad));
++  }
++});
++
++test("dates past year 9999 throw", () => {
++  assert.deepEqual(nextBillingDates("9999-11-30", "monthly", 1), ["9999-12-30"]);
++  assert.throws(() => nextBillingDates("9999-12-31", "weekly", 1), /out of range/);
++  assert.throws(() => nextBillingDates("9999-12-31", "monthly", 1), /out of range/);
++  assert.throws(() => nextBillingDates("9999-06-15", "yearly", 1), /out of range/);
++});

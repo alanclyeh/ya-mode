@@ -1,0 +1,119 @@
+diff --git a/src/pricing.js b/src/pricing.js
+index d599c5a..fb96dfe 100644
+--- a/src/pricing.js
++++ b/src/pricing.js
+@@ -1,50 +1,37 @@
++const TAX_RATE = 0.08;
++
++const LINE_TYPES = new Map([
++  ["product", {
++    units: (line) => line.qty,
++    discounts: (line, tierRate) => [tierRate, line.qty >= 10 ? 0.05 : undefined],
++    taxed: true,
++  }],
++  ["service", {
++    units: (line) => line.hours,
++    discounts: (line, tierRate) => [tierRate],
++    taxed: false,
++  }],
++  ["subscription", {
++    units: (line) => line.months,
++    discounts: (line, tierRate) => [line.months >= 12 ? 0.15 : tierRate],
++    taxed: true,
++  }],
++]);
++
++const TIER_RATES = new Map([
++  ["gold", { product: 0.1, service: 0.1, subscription: 0.1 }],
++  ["silver", { product: 0.05, service: 0.05 }],
++]);
++
+ export function lineTotal(line, customer) {
+-  let total = 0;
+-  if (line.type === "product") {
+-    if (customer && customer.tier === "gold") {
+-      total = line.unitCents * line.qty;
+-      total = total - Math.round(total * 0.1);
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    } else if (customer && customer.tier === "silver") {
+-      total = line.unitCents * line.qty;
+-      total = total - Math.round(total * 0.05);
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    } else {
+-      total = line.unitCents * line.qty;
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    }
+-    if (line.taxable !== false) {
+-      total = total + Math.round(total * 0.08);
+-    }
+-  } else if (line.type === "service") {
+-    if (customer && customer.tier === "gold") {
+-      total = line.unitCents * line.hours;
+-      total = total - Math.round(total * 0.1);
+-    } else if (customer && customer.tier === "silver") {
+-      total = line.unitCents * line.hours;
+-      total = total - Math.round(total * 0.05);
+-    } else {
+-      total = line.unitCents * line.hours;
+-    }
+-  } else if (line.type === "subscription") {
+-    total = line.unitCents * line.months;
+-    if (line.months >= 12) {
+-      total = total - Math.round(total * 0.15);
+-    } else if (customer && customer.tier === "gold") {
+-      total = total - Math.round(total * 0.1);
+-    }
+-    if (line.taxable !== false) {
+-      total = total + Math.round(total * 0.08);
+-    }
+-  } else {
+-    throw new Error("unknown line type: " + line.type);
++  const type = LINE_TYPES.get(line.type);
++  if (!type) throw new Error("unknown line type: " + line.type);
++  const tierRate = TIER_RATES.get(customer?.tier)?.[line.type];
++  let total = line.unitCents * type.units(line);
++  for (const rate of type.discounts(line, tierRate)) {
++    if (rate) total -= Math.round(total * rate);
+   }
++  if (type.taxed && line.taxable !== false) total += Math.round(total * TAX_RATE);
+   return total;
+ }
+ 
+diff --git a/test/pricing.test.js b/test/pricing.test.js
+index e421a14..7945fbf 100644
+--- a/test/pricing.test.js
++++ b/test/pricing.test.js
+@@ -17,3 +17,27 @@ test("invoice sums its lines", () => {
+   ];
+   assert.equal(invoiceTotal(lines), 11000);
+ });
++
++test("bulk products take five percent off after the tier discount, then tax", () => {
++  assert.equal(lineTotal({ type: "product", unitCents: 1000, qty: 10 }, { tier: "silver" }), 9747);
++  assert.equal(lineTotal({ type: "product", unitCents: 1000, qty: 10, taxable: false }, { tier: "gold" }), 8550);
++});
++
++test("services get the tier discount and are never taxed", () => {
++  assert.equal(lineTotal({ type: "service", unitCents: 5000, hours: 2, taxable: true }, { tier: "silver" }), 9500);
++});
++
++test("annual subscriptions take fifteen percent off instead of the tier discount", () => {
++  const line = { type: "subscription", unitCents: 1000, months: 12 };
++  assert.equal(lineTotal(line), 11016);
++  assert.equal(lineTotal(line, { tier: "gold" }), 11016);
++});
++
++test("only gold gets a discount on short subscriptions", () => {
++  assert.equal(lineTotal({ type: "subscription", unitCents: 1000, months: 3, taxable: false }, { tier: "gold" }), 2700);
++  assert.equal(lineTotal({ type: "subscription", unitCents: 1000, months: 3 }, { tier: "silver" }), 3240);
++});
++
++test("an unknown line type is rejected", () => {
++  assert.throws(() => lineTotal({ type: "gift", unitCents: 1000 }), /unknown line type: gift/);
++});

@@ -2,6 +2,10 @@
 ya-mode is my AI agent working mode, a simplified version of poteto-mode.
 Work in progress...
 
+## Evals
+
+`evals/` holds a fixed bug, feature, and refactor task with hidden acceptance tests. Rerun it after a ya-mode change and compare against `evals/results/`. See [evals/README.md](evals/README.md).
+
 ## Upstream refs
 
 `refs/` (gitignored) holds clones of the upstream repos ya-mode was derived from:

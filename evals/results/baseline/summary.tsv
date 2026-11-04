@@ -1,0 +1,9 @@
+task	kind	run	accept_pass	accept_fail	suite_pass	suite_fail	commits	left_dirty	files	insertions	deletions	cost_usd	minutes	turns	subagents	denials	error
+billing-schedule	feature	1	6	0	14	0	1	no	3	89	0	0.6422118000000001	1	8	0	0	false
+rounding-bug	bug	1	3	0	10	0	2	no	2	9	1	0.7010006000000001	1.1	10	0	0	false
+rounding-bug	bug	2	3	0	10	0	1	no	3	12	1	0.3852054	0.8	6	0	0	false
+billing-schedule	feature	2	6	0	20	0	1	no	3	121	0	0.7507786000000001	1.9	8	1	0	false
+pricing-cleanup	refactor	1	3	0	20	0	2	no	3	142	45	1.4560232999999996	1	4	1	0	false
+pricing-cleanup	refactor	2	3	0	13	0	2	no	2	56	45	0.8502868	2.5	28	0	0	false
+multi-currency	feature	1	14	0	52	0	7	no	13	321	45	3.8697423	1.8	8	4	0	false
+multi-currency	feature	2	13	1	47	0	5	no	17	311	46	2.2479192	1.7	11	1	0	false

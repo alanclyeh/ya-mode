@@ -1,0 +1,44 @@
+diff --git a/src/money.js b/src/money.js
+index 0fc432b..2ba5a6b 100644
+--- a/src/money.js
++++ b/src/money.js
+@@ -1,5 +1,5 @@
+ export function toCents(amount) {
+-  return Math.floor(parseFloat(amount) * 100);
++  return Math.round(parseFloat(amount) * 100);
+ }
+ 
+ export function formatCents(cents) {
+diff --git a/test/import.test.js b/test/import.test.js
+index ef01fe8..3cbb464 100644
+--- a/test/import.test.js
++++ b/test/import.test.js
+@@ -10,6 +10,10 @@ test("order rows become lines", () => {
+   ]);
+ });
+ 
++test("a 19.99 unit price imports as 1999 cents", () => {
++  assert.deepEqual(parseOrderCsv("sku,qty,price\nC-3,1,19.99"), [{ sku: "C-3", qty: 1, unitCents: 1999 }]);
++});
++
+ test("a malformed row names its line", () => {
+   assert.throws(() => parseOrderCsv("sku,qty,price\nA-1,x,1"), /row 2/);
+ });
+diff --git a/test/money.test.js b/test/money.test.js
+index 0c13099..e8dbcdc 100644
+--- a/test/money.test.js
++++ b/test/money.test.js
+@@ -7,6 +7,13 @@ test("whole and half amounts convert to cents", () => {
+   assert.equal(toCents("2.50"), 250);
+ });
+ 
++test("every two-decimal amount converts to its exact cents", () => {
++  for (let cents = 0; cents < 100000; cents++) {
++    const text = `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
++    assert.equal(toCents(text), cents, text);
++  }
++});
++
+ test("cents format with two decimals and a sign", () => {
+   assert.equal(formatCents(1999), "19.99");
+   assert.equal(formatCents(5), "0.05");
