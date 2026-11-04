@@ -95,25 +95,23 @@ Close calls:
 - `/architect` implements right after it settles the design. Add "with checkpoint" to review the design before it writes code.
 - `/interrogate` reviews the diff. `/blast-radius` looks for breakage outside the diff and proves the one fact that makes the change safe.
 - `/recall` rebuilds context across recent chats. `/ketchup` covers only this chat since the user's last message. Resuming one specific chat or branch is the Session pickup playbook.
-- `/figure-it-out` designs one rigorous run. The Orchestrate playbook runs a program that spans days and many PRs. The Autonomous run playbook drives one task to a finish condition.
+- `/figure-it-out` designs one rigorous run. The Autonomous run playbook drives one task to a finish condition.
 
 Not in ya:
 
 - `/loop` is a Claude Code bundled skill, and the **plugin-dev:skill-development** skill is Claude Code's skill-authoring guidance.
-- ya has no orchestrate skill. Orchestrate is a `/ya-mode` playbook. If the slash menu shows an orchestrate command, another plugin provides it.
 
 ## Playbooks and principles
 
 Playbooks are step lists inside `/ya-mode`, not skills, so they have no slash command. Inside `/ya-mode`, describing the task picks one, and these phrases name one directly:
 
 - "babysit this pr" or "check on pr 123" runs Babysit. It drives the PR to merge-ready and stops there. It doesn't merge unless the user asks to merge, land, or ship.
-- "land the stack" runs Shipping.
+- "land the stack" runs Babysit's merge step.
 - "take over this branch" runs Session pickup.
 - "pause safely" runs Pause safely.
-- "full autopilot on this queue" runs [Autopilot-full](../ya-mode/playbooks/autopilot-full.md). "stack them, don't ship" runs [Autopilot-stack](../ya-mode/playbooks/autopilot-stack.md). Read the selected playbook's merge rules before explaining what runs unattended.
 - "run the eval playbook" runs Eval.
 
-Without `/ya-mode`, a phrase such as "babysit this pr" can start ya's standalone [`/babysit`](../babysit/SKILL.md) skill instead. The [Playbooks section](../ya-mode/SKILL.md#playbooks) lists every playbook and when it applies. Read [Babysit](../ya-mode/playbooks/babysit.md) or [Shipping](../ya-mode/playbooks/shipping.md) for the port's PR workflow.
+Without `/ya-mode`, a phrase such as "babysit this pr" can start ya's standalone [`/babysit`](../babysit/SKILL.md) skill instead. The [Playbooks section](../ya-mode/SKILL.md#playbooks) lists every playbook and when it applies. Read [Babysit](../ya-mode/playbooks/babysit.md) for the port's PR workflow.
 
 ya has no planning skill. Claude Code's plan mode works alongside it. For work that spans phases or stacked PRs, asking `/ya-mode` for a plan runs the [Multi-phase plan playbook](../ya-mode/playbooks/multi-phase-plan.md), which writes the plan and doesn't implement it. For a design question, the Prototype playbook or `/architect` settles it in code first.
 
@@ -129,7 +127,7 @@ Principles are one-rule skills that `/ya-mode` reads and cites in its replies. T
 | Runs cost more than expected | See the cost paragraph under Get set up. |
 | A skill didn't load on its own | Read its description and the current runtime's skill-loading instructions. Invoke it explicitly when needed; `/ya-mode` doesn't run every skill. |
 | Parallel agents overwrote each other | Give each agent its own worktree. |
-| An overnight run moved but finished nothing | Read [Autonomous run](../ya-mode/playbooks/autonomous-run.md) and the current runtime's wake mechanism. For a queue, read the selected Autopilot playbook above. Give the run a check that can pass or fail. |
+| An overnight run moved but finished nothing | Read [Autonomous run](../ya-mode/playbooks/autonomous-run.md) and the current runtime's wake mechanism. Give the run a check that can pass or fail. |
 | The reply claims success from a green build | Ask for the real command, flow, stored value, or profile. That's the prove-it-works principle. |
 
 For a run that drifts, [`references/prompting.md`](references/prompting.md) has one-line steers, and [`references/recipes.md`](references/recipes.md) has prompts to adapt.
