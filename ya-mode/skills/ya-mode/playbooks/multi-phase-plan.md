@@ -58,7 +58,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 - [ ] Open the PR ready, never draft, per **Opening a PR**. Use the run's built-in PR tool when it has one, else `gh pr create --base <base-branch>`. A stack child targets its parent branch.
 - [ ] Run the repo's lint and typecheck once before the PR-facing push. Push with hooks on.
-- [ ] Run `/deslop` before each commit and `/no-comments` before review.
+- [ ] Run **Review** from ya-mode's Code flow before each PR-facing push.
 - [ ] Triage every review-bot and security-reviewer comment per `../references/bugbot-triage.md`.
 - [ ] Before the code-ready report and babysit, and again after merge prep, record the base and head SHAs prepared by the PR's owner.
 

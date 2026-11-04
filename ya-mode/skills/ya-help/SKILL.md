@@ -62,13 +62,12 @@ The default answer is `/ya-mode`, which runs most of the others when its steps n
 | Catch up on what changed in this chat since their last message, in plain words and small visuals, with every item waiting on them listed and decidable from the reply alone | [`/ketchup`](../ketchup/SKILL.md) |
 | Catch up like `/ketchup`, in a short subtitled video of slides, with the waiting calls as text under it | [`/ketchup-video`](../ketchup-video/SKILL.md) |
 | Know what a small diff could break outside itself | [`/blast-radius`](../blast-radius/SKILL.md) |
-| Settle types and module shape before code that crosses a function boundary | [`/architect`](../architect/SKILL.md) |
+| Settle a cross-module interface when two or more designs are reasonable | [`/architect`](../architect/SKILL.md) |
 | Get several attempts at one brief, merged into the best one | [`/arena`](../arena/SKILL.md) |
 | Run parallel checks over slices, or race workers | [`/swarm`](../swarm/SKILL.md) |
 | Have different models review a diff and try to break it | [`/interrogate`](../interrogate/SKILL.md) |
 | Fix a bug test-first when a cheap local test exists | [`/tdd`](../tdd/SKILL.md) |
 | Apply TypeScript rules to `.ts` or `.tsx` work | [`/typescript-best-practices`](../typescript-best-practices/SKILL.md) |
-| Strip comments before review, using a reviewer that didn't write them | [`/no-comments`](../no-comments/SKILL.md) |
 | Clean AI tells out of prose | [`/unslop`](../unslop/SKILL.md) |
 | Write docs, an RFC, a README, a PR description, or a commit message to a standard | [`/technical-writing`](../technical-writing/SKILL.md) |
 | Hear the last reply again in plain words | [`/bro`](../bro/SKILL.md) |
@@ -111,7 +110,7 @@ Playbooks are step lists inside `/ya-mode`, not skills, so they have no slash co
 - "pause safely" runs Pause safely.
 - "run the eval playbook" runs Eval.
 
-Without `/ya-mode`, a phrase such as "babysit this pr" can start ya's standalone [`/babysit`](../babysit/SKILL.md) skill instead. The [Playbooks section](../ya-mode/SKILL.md#playbooks) lists every playbook and when it applies. Read [Babysit](../ya-mode/playbooks/babysit.md) for the port's PR workflow.
+[`/babysit`](../babysit/SKILL.md) runs the same playbook without `/ya-mode`. The [Playbooks section](../ya-mode/SKILL.md#playbooks) lists every playbook and when it applies. Read [Babysit](../ya-mode/playbooks/babysit.md) for the port's PR workflow.
 
 ya has no planning skill. Claude Code's plan mode works alongside it. For work that spans phases or stacked PRs, asking `/ya-mode` for a plan runs the [Multi-phase plan playbook](../ya-mode/playbooks/multi-phase-plan.md), which writes the plan and doesn't implement it. For a design question, the Prototype playbook or `/architect` settles it in code first.
 
