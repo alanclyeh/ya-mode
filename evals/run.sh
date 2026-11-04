@@ -6,6 +6,7 @@ label=${1:?label}; plugin=$(cd "${2:?plugin dir}" && pwd); runs=${3:-2}
 if [ $# -ge 3 ]; then shift 3; else shift $#; fi
 tasks=${*:-$(cd "$evals/tasks" && ls)}
 model=${MODEL:-opus}; budget=${BUDGET:-20}
+claude auth status 2>/dev/null | jq -e .loggedIn >/dev/null || { echo "claude CLI is not logged in; run: claude auth login" >&2; exit 1; }
 out="$evals/results/$label"; mkdir -p "$out"
 summary="$out/summary.tsv"
 [ -f "$summary" ] || printf 'task\tkind\trun\taccept_pass\taccept_fail\tsuite_pass\tsuite_fail\tcommits\tleft_dirty\tfiles\tinsertions\tdeletions\tcost_usd\tminutes\tturns\tsubagents\tdenials\terror\n' > "$summary"
@@ -15,7 +16,7 @@ allowed='Read Edit Write Glob Grep Skill Agent TaskCreate TaskUpdate TaskList Ta
 
 run_one() {
   task=$1 i=$2 kind=$(cat "$evals/tasks/$1/kind")
-  dir=$(mktemp -d)/billing-kit; make_project "$dir" || return 1
+  dir=$(mktemp -d)/billing-kit; make_project "$dir" "$task" || return 1
   log="$out/$task-$i"
   prompt="/ya:ya-mode $(cat "$evals/tasks/$task/prompt.md")
 

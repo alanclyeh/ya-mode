@@ -9,8 +9,9 @@ A fixed task set that measures whether a ya-mode change produces better and more
 | `rounding-bug` | bug | Fixes the float truncation in the shared `toCents`, so both the CSV import and fixed discount codes keep every cent. A patch in the import path alone fails. |
 | `billing-schedule` | feature | Adds `nextBillingDates` with month-end clamping, leap days, and argument validation. |
 | `pricing-cleanup` | refactor | Simplifies `lineTotal` while 1,260 recorded line prices stay identical, including fractional service hours that the original never rounds. |
+| `multi-currency` | feature | Carries JPY and KWD through every module. Its `overlay/` adds eight modules that assume two decimals in different forms: a regex, string slicing, a price cache keyed without the currency, comma grouping anchored on the dot, and a read-back that strips one comma. Each module has its own acceptance test, so a missed spot lowers the score instead of zeroing it. |
 
-Each task directory holds `prompt.md` (what the user types), `kind`, `hidden/` (acceptance tests copied in only after the run), and `reference/` (a correct solution used by `check.sh`). The candidate sees only `fixture/` and the prompt. Nothing in its directory or prompt names the measurement.
+Each task directory holds `prompt.md` (what the user types), `kind`, `hidden/` (acceptance tests copied in only after the run), and `reference/` (a correct solution used by `check.sh`). An optional `overlay/` adds files on top of the fixture for that task alone, which keeps the other tasks' baselines valid. The candidate sees only the fixture, its overlay, and the prompt. Nothing in its directory or prompt names the measurement.
 
 ## Run
 

@@ -1,9 +1,10 @@
 # Shared by check.sh and run.sh. Source it; it sets $evals.
 evals=$(cd "$(dirname "$0")" && pwd)
 
-# make_project <dir>: a fresh git repo holding the fixture, one commit tagged "initial".
+# make_project <dir> <task>: a fresh git repo holding the fixture plus the task's overlay, one commit tagged "initial".
 make_project() {
   mkdir -p "$1" && cp -R "$evals/fixture/." "$1/" &&
+    { [ ! -d "$evals/tasks/$2/overlay" ] || cp -R "$evals/tasks/$2/overlay/." "$1/"; } &&
     git -C "$1" init -q && git -C "$1" add -A &&
     git -C "$1" -c user.email=dev@billing-kit.local -c user.name=dev commit -qm "initial" &&
     git -C "$1" tag initial
