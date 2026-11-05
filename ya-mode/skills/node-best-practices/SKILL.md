@@ -5,7 +5,7 @@ description: Node.js runtime best practices. Use when writing or changing Node.j
 
 # Node.js best practices
 
-Types follow the **typescript-best-practices** skill. Apply the **principle-boundary-discipline** and **principle-make-operations-idempotent** principle skills. Where the repo already has a convention or library for a rule below, follow the repo.
+Types follow the **typescript-best-practices** skill. Apply the [Guard the boundaries](../ya-mode/references/principles.md#guard-the-boundaries) and [Survive retries and sharing](../ya-mode/references/principles.md#survive-retries-and-sharing) principles. Where the repo already has a convention or library for a rule below, follow the repo.
 
 | Rule | Summary |
 |------|---------|

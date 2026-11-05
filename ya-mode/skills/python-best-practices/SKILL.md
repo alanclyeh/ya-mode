@@ -6,7 +6,7 @@ paths: ["**/*.py"]
 
 # Python best practices
 
-Apply the **principle-type-system-discipline** and **principle-boundary-discipline** principle skills first. Where the repo already has a convention or tool for a rule below, follow the repo.
+Apply the [Model the domain](../ya-mode/references/principles.md#model-the-domain) and [Guard the boundaries](../ya-mode/references/principles.md#guard-the-boundaries) principles first. Where the repo already has a convention or tool for a rule below, follow the repo.
 
 | Rule | Summary |
 |------|---------|

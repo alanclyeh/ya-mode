@@ -9,7 +9,7 @@ model=${MODEL:-opus}; budget=${BUDGET:-20}
 claude auth status 2>/dev/null | jq -e .loggedIn >/dev/null || { echo "claude CLI is not logged in; run: claude auth login" >&2; exit 1; }
 out="$evals/results/$label"; mkdir -p "$out"
 summary="$out/summary.tsv"
-[ -f "$summary" ] || printf 'task\tkind\trun\taccept_pass\taccept_fail\tsuite_pass\tsuite_fail\tcommits\tleft_dirty\tfiles\tinsertions\tdeletions\tcost_usd\tminutes\tturns\tsubagents\tdenials\terror\n' > "$summary"
+[ -f "$summary" ] || printf 'task\tkind\trun\taccept_pass\taccept_fail\tsuite_pass\tsuite_fail\tcommits\tleft_dirty\tfiles\tinsertions\tdeletions\tcost_usd\tapi_minutes\tturns\tsubagents\tdenials\terror\n' > "$summary"
 tail='全自動跑完，不用問我。這個 repo 沒有 remote，做完在本地 commit 就好，不用開 PR。'
 # Pre-approved tools; auto mode's classifier decides the rest. A nonzero denials column means the harness, not the plugin, blocked work.
 allowed='Read Edit Write Glob Grep Skill Agent TaskCreate TaskUpdate TaskList TaskGet TodoWrite Bash(node:*) Bash(npm:*) Bash(git:*) Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*) Bash(grep:*) Bash(rg:*) Bash(find:*) Bash(wc:*) Bash(diff:*) Bash(mkdir:*)'
@@ -32,7 +32,7 @@ $tail"
   files=$1 ins=$2 del=$3
   set -- $(run_tests "$dir"); suite_pass=$1 suite_fail=$2
   set -- $(run_tests "$dir" $(add_hidden "$task" "$dir")); acc_pass=$1 acc_fail=$2
-  meta=$(jq -r '[.total_cost_usd, (.duration_ms / 60000 | . * 10 | round / 10), .num_turns, .subagent_stats.spawned, (.permission_denials | length), .is_error] | @tsv' "$log.json" 2>/dev/null || printf 'NA\tNA\tNA\tNA\tNA\ttrue')
+  meta=$(jq -r '[.total_cost_usd, (.duration_api_ms / 60000 | . * 10 | round / 10), .num_turns, .subagent_stats.spawned, (.permission_denials | length), .is_error] | @tsv' "$log.json" 2>/dev/null || printf 'NA\tNA\tNA\tNA\tNA\ttrue')
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$task" "$kind" "$i" "$acc_pass" "$acc_fail" \
     "$suite_pass" "$suite_fail" "$commits" "$dirty" "$files" "$ins" "$del" "$meta" >> "$summary"
   echo "done $task #$i: accept $acc_pass/$((acc_pass + acc_fail)), $meta"

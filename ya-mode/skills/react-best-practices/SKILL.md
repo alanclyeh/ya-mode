@@ -20,7 +20,7 @@ Types follow the **typescript-best-practices** skill. Where the repo already has
 | Memoize on evidence | Add `useMemo`, `useCallback`, or `memo` only for a slowdown you measured, unless the repo uses the React Compiler, which does it for you. |
 | Accessible by default | Semantic elements, labelled inputs, working keyboard focus. A `div` with `onClick` is a bug. |
 | Test as the user | Testing Library queries by role and label, `user-event` for interaction. Never assert on state, props, or hook internals. Mock the network at its edge (MSW), not your own hooks. |
-| Prove it in a browser | A component change is verified in a running build per **principle-prove-it-works**, not only by a unit test. |
+| Prove it in a browser | A component change is verified in a running build per [Prove it works](../ya-mode/references/principles.md#prove-it-works), not only by a unit test. |
 | Styling per repo | Use the repo's styling system and design tokens. Never add a second one. |
 
 ## Examples
