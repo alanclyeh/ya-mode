@@ -1,0 +1,466 @@
+diff --git a/README.md b/README.md
+index 116ba80..beb4ccf 100644
+--- a/README.md
++++ b/README.md
+@@ -2,4 +2,8 @@
+ 
+ Invoice helpers for the shop backend: money parsing, CSV order import, discount codes, line pricing, quotes, shipping, receipts, statements, refunds, accounting export, and revenue reports.
+ 
+-All amounts are integer cents. Run the tests with `npm test`.
++All amounts are integers in the currency's minor unit: USD cents, JPY yen, KWD fils. Functions that parse, display, or decide on an amount take an optional last `currency` argument, `"USD"` by default, and throw on any other code than `USD`, `JPY`, or `KWD`. Parsing also throws on more decimals than the currency allows.
++
++`lineTotal`, `invoiceTotal`, and `applyDiscount` take no `currency` because they only do integer arithmetic. Keep one currency per invoice: nothing stops a USD discount from being applied to a JPY total.
++
++Run the tests with `npm test`.
+diff --git a/src/currency.js b/src/currency.js
+new file mode 100644
+index 0000000..a05738b
+--- /dev/null
++++ b/src/currency.js
+@@ -0,0 +1,12 @@
++// Amounts are integers in each currency's minor unit, so shipping values here are too.
++const CURRENCIES = new Map([
++  ["USD", { decimals: 2, symbol: "$", freeShippingOver: 5000, shippingFee: 500 }],
++  ["JPY", { decimals: 0, symbol: "¥", freeShippingOver: 7000, shippingFee: 700 }],
++  ["KWD", { decimals: 3, symbol: "KD ", freeShippingOver: 15000, shippingFee: 1500 }],
++]);
++
++export function currencyInfo(currency) {
++  const info = CURRENCIES.get(currency);
++  if (!info) throw new Error(`unsupported currency: ${currency}`);
++  return info;
++}
+diff --git a/src/discount.js b/src/discount.js
+index bbae3e5..9d0719d 100644
+--- a/src/discount.js
++++ b/src/discount.js
+@@ -1,7 +1,9 @@
++import { currencyInfo } from "./currency.js";
+ import { toCents } from "./money.js";
+ 
+ // "10%" is a percentage off, "4.35" is a fixed amount off.
+-export function parseDiscount(code) {
++export function parseDiscount(code, currency = "USD") {
++  currencyInfo(currency);
+   const text = code.trim();
+   if (text.endsWith("%")) {
+     const percent = Number(text.slice(0, -1));
+@@ -9,7 +11,7 @@ export function parseDiscount(code) {
+     return { kind: "percent", percent };
+   }
+   if (Number.isNaN(parseFloat(text))) throw new Error(`bad discount: ${code}`);
+-  return { kind: "fixed", cents: toCents(text) };
++  return { kind: "fixed", cents: toCents(text, currency) };
+ }
+ 
+ export function applyDiscount(totalCents, discount) {
+diff --git a/src/export.js b/src/export.js
+index 5224684..8785f8b 100644
+--- a/src/export.js
++++ b/src/export.js
+@@ -1,8 +1,9 @@
++import { currencyInfo } from "./currency.js";
++import { formatCents } from "./money.js";
++
+ // One "sku,amount" row per line for the accounting system.
+-export function toAccountingCsv(lines) {
+-  const rows = lines.map((line) => {
+-    const digits = String(line.unitCents * line.qty).padStart(3, "0");
+-    return `${line.sku},${digits.slice(0, -2)}.${digits.slice(-2)}`;
+-  });
++export function toAccountingCsv(lines, currency = "USD") {
++  currencyInfo(currency);
++  const rows = lines.map((line) => `${line.sku},${formatCents(line.unitCents * line.qty, currency)}`);
+   return ["sku,amount", ...rows].join("\n") + "\n";
+ }
+diff --git a/src/import.js b/src/import.js
+index ed9c4fe..1c11bb7 100644
+--- a/src/import.js
++++ b/src/import.js
+@@ -1,7 +1,9 @@
++import { currencyInfo } from "./currency.js";
+ import { toCents } from "./money.js";
+ 
+ // Parses "sku,qty,price" rows, one order line per row, with a header row first.
+-export function parseOrderCsv(text) {
++export function parseOrderCsv(text, currency = "USD") {
++  currencyInfo(currency);
+   const rows = text.trim().split(/\r?\n/).slice(1);
+   return rows
+     .filter((row) => row.trim() !== "")
+@@ -11,6 +13,10 @@ export function parseOrderCsv(text) {
+       if (!sku || !Number.isInteger(quantity) || quantity <= 0 || price === undefined || Number.isNaN(parseFloat(price))) {
+         throw new Error(`bad order row ${i + 2}: ${row}`);
+       }
+-      return { sku, qty: quantity, unitCents: toCents(price) };
++      try {
++        return { sku, qty: quantity, unitCents: toCents(price, currency) };
++      } catch (error) {
++        throw new Error(`bad order row ${i + 2}: ${row} (${error.message})`);
++      }
+     });
+ }
+diff --git a/src/money.js b/src/money.js
+index 0fc432b..1b4c70c 100644
+--- a/src/money.js
++++ b/src/money.js
+@@ -1,9 +1,29 @@
+-export function toCents(amount) {
+-  return Math.floor(parseFloat(amount) * 100);
++import { currencyInfo } from "./currency.js";
++
++const NUMBER_PREFIX = /^\s*([+-]?)(\d*)\.?(\d*)(?:e([+-]?\d+))?/i;
++
++export function toCents(amount, currency = "USD") {
++  const { decimals } = currencyInfo(currency);
++  const value = parseFloat(amount);
++  if (!Number.isFinite(value)) return value;
++  // parseFloat picks what counts as a number; the digits are then scaled as text so binary rounding never applies.
++  const [, sign, whole, fraction, exponent = 0] = NUMBER_PREFIX.exec(amount);
++  const places = fraction.length - Number(exponent);
++  if (places > decimals) throw new Error(`too many decimals for ${currency}: ${amount}`);
++  return Number(`${sign}${whole}${fraction}e${decimals - places}`);
+ }
+ 
+-export function formatCents(cents) {
++export function formatCents(cents, currency = "USD") {
++  const { decimals } = currencyInfo(currency);
++  const unit = 10 ** decimals;
+   const sign = cents < 0 ? "-" : "";
+   const abs = Math.abs(cents);
+-  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
++  const whole = Math.floor(abs / unit);
++  return decimals === 0 ? `${sign}${whole}` : `${sign}${whole}.${String(abs % unit).padStart(decimals, "0")}`;
++}
++
++// For amounts that can be fractional, such as averages and prorated refunds.
++export function roundedAmount(cents, currency = "USD") {
++  const { decimals } = currencyInfo(currency);
++  return (cents / 10 ** decimals).toFixed(decimals);
+ }
+diff --git a/src/quote.js b/src/quote.js
+index dd17d6b..5625490 100644
+--- a/src/quote.js
++++ b/src/quote.js
+@@ -1,8 +1,11 @@
++import { currencyInfo } from "./currency.js";
+ import { toCents } from "./money.js";
+ 
+-// Reads a sales quote such as "3 x 19.99".
+-export function parseQuote(text) {
+-  const match = /^\s*(\d+)\s*x\s*(\d+\.\d{2})\s*$/.exec(text);
++// Reads a sales quote such as "3 x 19.99". The price carries exactly the currency's decimals.
++export function parseQuote(text, currency = "USD") {
++  const { decimals } = currencyInfo(currency);
++  const price = decimals === 0 ? "\\d+" : `\\d+\\.\\d{${decimals}}`;
++  const match = new RegExp(`^\\s*(\\d+)\\s*x\\s*(${price})\\s*$`).exec(text);
+   if (!match) throw new Error(`bad quote: ${text}`);
+-  return { qty: Number(match[1]), unitCents: toCents(match[2]) };
++  return { qty: Number(match[1]), unitCents: toCents(match[2], currency) };
+ }
+diff --git a/src/receipt.js b/src/receipt.js
+index e41aef5..16420d1 100644
+--- a/src/receipt.js
++++ b/src/receipt.js
+@@ -1,18 +1,19 @@
+ import { formatCents } from "./money.js";
+ 
+-// Receipts repeat the same few prices, so each one is formatted once.
++// Receipts repeat the same few prices, so each one is formatted once per currency.
+ const priceText = new Map();
+ 
+-function price(cents) {
+-  if (!priceText.has(cents)) priceText.set(cents, formatCents(cents));
+-  return priceText.get(cents);
++function price(cents, currency) {
++  const key = `${currency}:${cents}`;
++  if (!priceText.has(key)) priceText.set(key, formatCents(cents, currency));
++  return priceText.get(key);
+ }
+ 
+-export function receiptLine(line) {
+-  return `${line.sku.padEnd(8)} ${String(line.qty).padStart(3)} x ${price(line.unitCents).padStart(10)}`;
++export function receiptLine(line, currency = "USD") {
++  return `${line.sku.padEnd(8)} ${String(line.qty).padStart(3)} x ${price(line.unitCents, currency).padStart(10)}`;
+ }
+ 
+-export function receipt(lines) {
++export function receipt(lines, currency = "USD") {
+   const total = lines.reduce((sum, line) => sum + line.unitCents * line.qty, 0);
+-  return [...lines.map((line) => receiptLine(line)), `TOTAL ${price(total)}`].join("\n");
++  return [...lines.map((line) => receiptLine(line, currency)), `TOTAL ${price(total, currency)}`].join("\n");
+ }
+diff --git a/src/refund.js b/src/refund.js
+index 6dfd077..fe3c091 100644
+--- a/src/refund.js
++++ b/src/refund.js
+@@ -1,6 +1,8 @@
+-export function refundNote(paidCents, usedDays, totalDays) {
++import { roundedAmount } from "./money.js";
++
++export function refundNote(paidCents, usedDays, totalDays, currency = "USD") {
+   if (!(totalDays > 0) || usedDays < 0 || usedDays > totalDays) throw new Error("bad billing period");
+   const unused = totalDays - usedDays;
+   const refund = (paidCents * unused) / totalDays;
+-  return `Refund ${(refund / 100).toFixed(2)} for ${unused} unused days`;
++  return `Refund ${roundedAmount(refund, currency)} for ${unused} unused days`;
+ }
+diff --git a/src/report.js b/src/report.js
+index 8d1527b..9c7c728 100644
+--- a/src/report.js
++++ b/src/report.js
+@@ -1,5 +1,7 @@
+-export function revenueSummary(invoices) {
++import { roundedAmount } from "./money.js";
++
++export function revenueSummary(invoices, currency = "USD") {
+   const total = invoices.reduce((sum, invoice) => sum + invoice.totalCents, 0);
+   const average = invoices.length === 0 ? 0 : total / invoices.length;
+-  return { count: invoices.length, total: (total / 100).toFixed(2), average: (average / 100).toFixed(2) };
++  return { count: invoices.length, total: roundedAmount(total, currency), average: roundedAmount(average, currency) };
+ }
+diff --git a/src/shipping.js b/src/shipping.js
+index a18fd96..01fbc76 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -1,6 +1,6 @@
+-const FREE_OVER = 5000;
+-const FLAT_FEE = 500;
++import { currencyInfo } from "./currency.js";
+ 
+-export function shippingFee(subtotalCents) {
+-  return subtotalCents >= FREE_OVER ? 0 : FLAT_FEE;
++export function shippingFee(subtotalCents, currency = "USD") {
++  const { freeShippingOver, shippingFee: fee } = currencyInfo(currency);
++  return subtotalCents >= freeShippingOver ? 0 : fee;
+ }
+diff --git a/src/statement.js b/src/statement.js
+index 81378be..34ee7fb 100644
+--- a/src/statement.js
++++ b/src/statement.js
+@@ -1,16 +1,23 @@
+-const withCommas = (text) => text.replace(/\B(?=(\d{3})+\.)/g, ",");
++import { currencyInfo } from "./currency.js";
++import { roundedAmount, toCents } from "./money.js";
+ 
+-export function displayAmount(cents) {
++const withCommas = (text) => text.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
++
++export function displayAmount(cents, currency = "USD") {
++  const { symbol } = currencyInfo(currency);
+   const sign = cents < 0 ? "-" : "";
+-  return `${sign}$${withCommas((Math.abs(cents) / 100).toFixed(2))}`;
++  return `${sign}${symbol}${withCommas(roundedAmount(Math.abs(cents), currency))}`;
+ }
+ 
+-export function statementLine(label, cents) {
+-  return `${label}: ${displayAmount(cents)}`;
++export function statementLine(label, cents, currency = "USD") {
++  return `${label}: ${displayAmount(cents, currency)}`;
+ }
+ 
+ // Reads the amount back from a line statementLine wrote.
+-export function readStatementLine(text) {
+-  const amount = text.slice(text.lastIndexOf(": ") + 2).replace("$", "").replace(",", "");
+-  return Math.round(Number(amount) * 100);
++export function readStatementLine(text, currency = "USD") {
++  const { symbol } = currencyInfo(currency);
++  const amount = text.slice(text.lastIndexOf(": ") + 2).replace(symbol, "").replaceAll(",", "");
++  // toCents would accept a numeric prefix such as "12abc", which statementLine never writes.
++  if (amount.trim() === "" || Number.isNaN(Number(amount))) return Number(amount);
++  return toCents(amount, currency);
+ }
+diff --git a/test/currency-output.test.js b/test/currency-output.test.js
+new file mode 100644
+index 0000000..4ee86a3
+--- /dev/null
++++ b/test/currency-output.test.js
+@@ -0,0 +1,94 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import {
++  formatCents, shippingFee, receiptLine, receipt, toAccountingCsv, displayAmount, statementLine, readStatementLine, refundNote, revenueSummary,
++} from "../src/index.js";
++
++test("plain output follows the currency's decimals", () => {
++  assert.equal(formatCents(1234567, "JPY"), "1234567");
++  assert.equal(formatCents(-5, "JPY"), "-5");
++  assert.equal(formatCents(1234567, "KWD"), "1234.567");
++  assert.equal(formatCents(5, "KWD"), "0.005");
++  assert.equal(formatCents(-1050, "KWD"), "-1.050");
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 2, unitCents: 980 }], "JPY"), "sku,amount\nA,1960\n");
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 1, unitCents: 5 }], "JPY"), "sku,amount\nA,5\n");
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 1, unitCents: 5 }], "KWD"), "sku,amount\nA,0.005\n");
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 1, unitCents: 5 }]), "sku,amount\nA,0.05\n");
++  assert.equal(refundNote(3000, 10, 30, "JPY"), "Refund 2000 for 20 unused days");
++  assert.equal(refundNote(1000, 10, 30, "KWD"), "Refund 0.667 for 20 unused days");
++  assert.deepEqual(revenueSummary([{ totalCents: 1000 }, { totalCents: 2002 }], "JPY"), { count: 2, total: "3002", average: "1501" });
++  assert.deepEqual(revenueSummary([{ totalCents: 1000 }, { totalCents: 2002 }], "KWD"), { count: 2, total: "3.002", average: "1.501" });
++  assert.deepEqual(revenueSummary([], "JPY"), { count: 0, total: "0", average: "0" });
++});
++
++test("negative accounting amounts below one major unit keep their sign in front", () => {
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 1, unitCents: -5 }]), "sku,amount\nA,-0.05\n");
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 1, unitCents: -5 }], "KWD"), "sku,amount\nA,-0.005\n");
++  assert.equal(toAccountingCsv([{ sku: "A", qty: 1, unitCents: -5 }], "JPY"), "sku,amount\nA,-5\n");
++});
++
++test("symbol display per currency", () => {
++  assert.equal(displayAmount(123456), "$1,234.56");
++  assert.equal(displayAmount(123456789), "$1,234,567.89");
++  assert.equal(displayAmount(1234567, "JPY"), "¥1,234,567");
++  assert.equal(displayAmount(999, "JPY"), "¥999");
++  assert.equal(displayAmount(1000, "JPY"), "¥1,000");
++  assert.equal(displayAmount(1234567, "KWD"), "KD 1,234.567");
++  assert.equal(displayAmount(5, "KWD"), "KD 0.005");
++  assert.equal(displayAmount(-1234567, "JPY"), "-¥1,234,567");
++  assert.equal(displayAmount(-1234567, "KWD"), "-KD 1,234.567");
++  assert.equal(statementLine("Total", 1234567, "KWD"), "Total: KD 1,234.567");
++});
++
++test("statement lines read back in every currency", () => {
++  const cases = [["USD", 123456789], ["USD", -123456789], ["USD", 1999], ["JPY", 1234567], ["JPY", -1234567], ["JPY", 0], ["KWD", 1234567890], ["KWD", -1234567], ["KWD", 1]];
++  for (const [currency, cents] of cases) {
++    assert.equal(readStatementLine(statementLine("Net: due", cents, currency), currency), cents);
++  }
++});
++
++test("statement lines that hold no amount stay as they were", () => {
++  assert.equal(readStatementLine("Total: abc"), NaN);
++  assert.equal(readStatementLine("Total: 12abc"), NaN);
++  assert.equal(readStatementLine("Total: "), 0);
++});
++
++test("the same amount in two currencies keeps its own receipt text", () => {
++  const lines = [{ sku: "A-1", qty: 2, unitCents: 1050 }];
++  assert.equal(receipt(lines), "A-1        2 x      10.50\nTOTAL 21.00");
++  assert.equal(receipt(lines, "JPY"), "A-1        2 x       1050\nTOTAL 2100");
++  assert.equal(receipt(lines, "KWD"), "A-1        2 x      1.050\nTOTAL 2.100");
++  assert.equal(receiptLine(lines[0]), "A-1        2 x      10.50");
++});
++
++test("free shipping starts at each currency's threshold", () => {
++  assert.equal(shippingFee(4999), 500);
++  assert.equal(shippingFee(5000), 0);
++  assert.equal(shippingFee(6999, "JPY"), 700);
++  assert.equal(shippingFee(7000, "JPY"), 0);
++  assert.equal(shippingFee(14999, "KWD"), 1500);
++  assert.equal(shippingFee(15000, "KWD"), 0);
++});
++
++test("a statement line with too many decimals throws", () => {
++  assert.throws(() => readStatementLine("Total: $19.999"), /too many decimals/);
++});
++
++test("unsupported currencies throw, even when nothing else would touch the currency", () => {
++  const calls = [
++    (c) => shippingFee(1, c),
++    (c) => receiptLine({ sku: "A", qty: 1, unitCents: 1 }, c),
++    (c) => receipt([], c),
++    (c) => toAccountingCsv([], c),
++    (c) => displayAmount(1, c),
++    (c) => statementLine("Total", 1, c),
++    (c) => readStatementLine("Total: $1.00", c),
++    (c) => refundNote(1, 0, 1, c),
++    (c) => revenueSummary([], c),
++  ];
++  for (const call of calls) {
++    for (const code of ["EUR", "usd", "", null, "constructor", "__proto__"]) {
++      assert.throws(() => call(code), /unsupported currency/);
++    }
++  }
++});
+diff --git a/test/currency-parsing.test.js b/test/currency-parsing.test.js
+new file mode 100644
+index 0000000..8b871eb
+--- /dev/null
++++ b/test/currency-parsing.test.js
+@@ -0,0 +1,88 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { toCents, formatCents, parseOrderCsv, parseDiscount, applyDiscount, parseQuote } from "../src/index.js";
++
++test("amounts that are inexact in binary parse exactly", () => {
++  assert.equal(toCents("19.99"), 1999);
++  assert.equal(toCents("4.35"), 435);
++  assert.equal(toCents("1.15"), 115);
++  assert.equal(toCents("-19.99"), -1999);
++  assert.equal(toCents(19.99), 1999);
++  assert.equal(toCents("1.001", "KWD"), 1001);
++  assert.equal(toCents("4.35", "KWD"), 4350);
++  assert.equal(parseDiscount("4.35").cents, 435);
++  assert.equal(parseQuote("3 x 19.99").unitCents, 1999);
++  assert.equal(parseOrderCsv("sku,qty,price\nA,1,19.99")[0].unitCents, 1999);
++});
++
++test("toCents accepts every number form parseFloat does", () => {
++  assert.equal(toCents(" 12.34"), 1234);
++  assert.equal(toCents("\t7"), 700);
++  assert.equal(toCents("+5"), 500);
++  assert.equal(toCents(".5"), 50);
++  assert.equal(toCents("5."), 500);
++  assert.equal(toCents("-.5"), -50);
++  assert.equal(toCents("1e3"), 100000);
++  assert.equal(toCents("1E2"), 10000);
++  assert.equal(toCents("1e+2"), 10000);
++  assert.equal(toCents("1.5e1"), 1500);
++  assert.equal(toCents("1500e-2"), 1500);
++  assert.equal(toCents("12abc"), 1200);
++  assert.equal(toCents("1.2.3"), 120);
++  assert.equal(toCents(2.5), 250);
++  assert.equal(toCents("-0"), -0);
++  assert.equal(toCents("abc"), NaN);
++  assert.equal(toCents(""), NaN);
++  assert.equal(toCents("Infinity"), Infinity);
++  assert.equal(toCents("-Infinity"), -Infinity);
++  assert.equal(toCents("1e400"), Infinity);
++  assert.throws(() => toCents("1e-3"), /too many decimals/);
++});
++
++test("parsing scales by the currency", () => {
++  assert.equal(toCents("1234", "JPY"), 1234);
++  assert.equal(toCents("1.5", "KWD"), 1500);
++  assert.equal(toCents("1e3", "JPY"), 1000);
++  assert.deepEqual(parseDiscount("500", "JPY"), { kind: "fixed", cents: 500 });
++  assert.deepEqual(parseDiscount("1.250", "KWD"), { kind: "fixed", cents: 1250 });
++  assert.deepEqual(parseOrderCsv("sku,qty,price\nA,2,980", "JPY"), [{ sku: "A", qty: 2, unitCents: 980 }]);
++  assert.deepEqual(parseOrderCsv("sku,qty,price\nA,2,1.250", "KWD"), [{ sku: "A", qty: 2, unitCents: 1250 }]);
++});
++
++test("too many decimals throw", () => {
++  assert.throws(() => toCents("19.99", "JPY"), /too many decimals/);
++  assert.throws(() => toCents("19.999"), /too many decimals/);
++  assert.throws(() => toCents("1.2345", "KWD"), /too many decimals/);
++  assert.throws(() => parseDiscount("19.99", "JPY"), /too many decimals/);
++  assert.throws(() => parseOrderCsv("sku,qty,price\nA,1,19.999"), /row 2.*too many decimals/);
++});
++
++test("quotes carry exactly the currency's decimals", () => {
++  assert.deepEqual(parseQuote("3 x 1980", "JPY"), { qty: 3, unitCents: 1980 });
++  assert.deepEqual(parseQuote("3 x 1.250", "KWD"), { qty: 3, unitCents: 1250 });
++  assert.throws(() => parseQuote("3 x 19.99", "JPY"), /bad quote/);
++  assert.throws(() => parseQuote("3 x 1.25", "KWD"), /bad quote/);
++  assert.throws(() => parseQuote("3 x 1.250"), /bad quote/);
++});
++
++test("a fixed discount and its total share the minor unit", () => {
++  assert.equal(applyDiscount(2000, parseDiscount("500", "JPY")), 1500);
++  assert.equal(applyDiscount(2000, parseDiscount("0.500", "KWD")), 1500);
++});
++
++test("unsupported currencies throw, even when nothing else would touch the currency", () => {
++  const calls = [
++    (c) => toCents("1", c),
++    (c) => toCents("abc", c),
++    (c) => formatCents(1, c),
++    (c) => parseOrderCsv("sku,qty,price\n", c),
++    (c) => parseDiscount("10%", c),
++    (c) => parseDiscount("1", c),
++    (c) => parseQuote("1 x 1.00", c),
++  ];
++  for (const call of calls) {
++    for (const code of ["EUR", "usd", "", null, "constructor", "__proto__"]) {
++      assert.throws(() => call(code), /unsupported currency/);
++    }
++  }
++});

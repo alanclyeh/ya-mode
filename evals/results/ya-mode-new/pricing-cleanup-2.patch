@@ -1,0 +1,171 @@
+diff --git a/src/pricing.js b/src/pricing.js
+index d599c5a..a0f6ffd 100644
+--- a/src/pricing.js
++++ b/src/pricing.js
+@@ -1,50 +1,60 @@
++const TAX_RATE = 0.08;
++const BULK_RATE = 0.05;
++const BULK_MIN_QTY = 10;
++const ANNUAL_RATE = 0.15;
++const ANNUAL_MIN_MONTHS = 12;
++
++// A tier gets no discount on a line type it has no rate for.
++const TIER_RATES = new Map([
++  ["gold", { product: 0.1, service: 0.1, subscription: 0.1 }],
++  ["silver", { product: 0.05, service: 0.05 }],
++]);
++
++// discountRates returns rates in the order they apply. Each rate comes off the
++// total the previous rate left, and each step rounds to whole cents.
++const LINE_RULES = new Map([
++  [
++    "product",
++    {
++      unitsField: "qty",
++      taxed: true,
++      discountRates: (units, tierRate) => [tierRate, units >= BULK_MIN_QTY ? BULK_RATE : 0],
++    },
++  ],
++  [
++    "service",
++    {
++      unitsField: "hours",
++      taxed: false,
++      discountRates: (units, tierRate) => [tierRate],
++    },
++  ],
++  [
++    "subscription",
++    {
++      unitsField: "months",
++      taxed: true,
++      discountRates: (units, tierRate) => [units >= ANNUAL_MIN_MONTHS ? ANNUAL_RATE : tierRate],
++    },
++  ],
++]);
++
+ export function lineTotal(line, customer) {
+-  let total = 0;
+-  if (line.type === "product") {
+-    if (customer && customer.tier === "gold") {
+-      total = line.unitCents * line.qty;
+-      total = total - Math.round(total * 0.1);
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    } else if (customer && customer.tier === "silver") {
+-      total = line.unitCents * line.qty;
+-      total = total - Math.round(total * 0.05);
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    } else {
+-      total = line.unitCents * line.qty;
+-      if (line.qty >= 10) {
+-        total = total - Math.round(total * 0.05);
+-      }
+-    }
+-    if (line.taxable !== false) {
+-      total = total + Math.round(total * 0.08);
+-    }
+-  } else if (line.type === "service") {
+-    if (customer && customer.tier === "gold") {
+-      total = line.unitCents * line.hours;
+-      total = total - Math.round(total * 0.1);
+-    } else if (customer && customer.tier === "silver") {
+-      total = line.unitCents * line.hours;
+-      total = total - Math.round(total * 0.05);
+-    } else {
+-      total = line.unitCents * line.hours;
+-    }
+-  } else if (line.type === "subscription") {
+-    total = line.unitCents * line.months;
+-    if (line.months >= 12) {
+-      total = total - Math.round(total * 0.15);
+-    } else if (customer && customer.tier === "gold") {
+-      total = total - Math.round(total * 0.1);
+-    }
+-    if (line.taxable !== false) {
+-      total = total + Math.round(total * 0.08);
+-    }
+-  } else {
++  const rule = LINE_RULES.get(line.type);
++  if (!rule) {
+     throw new Error("unknown line type: " + line.type);
+   }
++  const units = line[rule.unitsField];
++  const tierRate = TIER_RATES.get(customer?.tier)?.[line.type];
++  let total = line.unitCents * units;
++  for (const rate of rule.discountRates(units, tierRate)) {
++    if (rate) {
++      total = total - Math.round(total * rate);
++    }
++  }
++  if (rule.taxed && line.taxable !== false) {
++    total = total + Math.round(total * TAX_RATE);
++  }
+   return total;
+ }
+ 
+diff --git a/test/pricing.test.js b/test/pricing.test.js
+index e421a14..01da864 100644
+--- a/test/pricing.test.js
++++ b/test/pricing.test.js
+@@ -17,3 +17,57 @@ test("invoice sums its lines", () => {
+   ];
+   assert.equal(invoiceTotal(lines), 11000);
+ });
++
++const gold = { tier: "gold" };
++const silver = { tier: "silver" };
++
++const priced = [
++  ["product: bulk starts at ten units", { type: "product", unitCents: 1000, qty: 9 }, undefined, 9720],
++  ["product: bulk discount for a guest", { type: "product", unitCents: 1000, qty: 10 }, undefined, 10260],
++  ["product: silver discount", { type: "product", unitCents: 1000, qty: 1 }, silver, 1026],
++  ["product: bulk compounds on the gold price", { type: "product", unitCents: 1000, qty: 10 }, gold, 9234],
++  ["product: bulk compounds on the silver price", { type: "product", unitCents: 1000, qty: 10 }, silver, 9747],
++  ["product: every step rounds to whole cents", { type: "product", unitCents: 15, qty: 1 }, gold, 14],
++  ["product: the tier discount comes before bulk", { type: "product", unitCents: 1, qty: 10 }, gold, 10],
++  ["product: a guest total skips the discount math", { type: "product", unitCents: Infinity, qty: 1 }, undefined, Infinity],
++  ["product: taxable false skips tax", { type: "product", unitCents: 1000, qty: 10, taxable: false }, gold, 8550],
++  ["product: only taxable false skips tax", { type: "product", unitCents: 1000, qty: 1, taxable: 0 }, undefined, 1080],
++  ["service: guests pay full price", { type: "service", unitCents: 5000, hours: 2 }, undefined, 10000],
++  ["service: gold discount", { type: "service", unitCents: 5000, hours: 2 }, gold, 9000],
++  ["service: silver discount", { type: "service", unitCents: 5000, hours: 2 }, silver, 9500],
++  ["service: no bulk discount", { type: "service", unitCents: 5000, hours: 10 }, undefined, 50000],
++  ["service: billed by hours, not qty", { type: "service", unitCents: 5000, hours: 1, qty: 10 }, undefined, 5000],
++  ["service: never taxed", { type: "service", unitCents: 5000, hours: 2, taxable: true }, gold, 9000],
++  ["subscription: guests pay full price under a year", { type: "subscription", unitCents: 1000, months: 11 }, undefined, 11880],
++  ["subscription: gold discount under a year", { type: "subscription", unitCents: 1000, months: 11 }, gold, 10692],
++  ["subscription: silver gets no discount", { type: "subscription", unitCents: 1000, months: 11 }, silver, 11880],
++  ["subscription: annual discount for a guest", { type: "subscription", unitCents: 1000, months: 12 }, undefined, 11016],
++  ["subscription: annual discount replaces gold", { type: "subscription", unitCents: 1000, months: 12 }, gold, 11016],
++  ["subscription: annual discount for silver", { type: "subscription", unitCents: 1000, months: 12 }, silver, 11016],
++  ["subscription: taxable false skips tax", { type: "subscription", unitCents: 1000, months: 12, taxable: false }, undefined, 10200],
++  ["customer: null is a guest", { type: "product", unitCents: 1000, qty: 1 }, null, 1080],
++  ["customer: no tier is a guest", { type: "product", unitCents: 1000, qty: 1 }, {}, 1080],
++  ["customer: an unknown tier is a guest", { type: "product", unitCents: 1000, qty: 1 }, { tier: "bronze" }, 1080],
++  ["customer: an Object.prototype key is a guest", { type: "product", unitCents: 1000, qty: 1 }, { tier: "constructor" }, 1080],
++  ["customer: a non-string tier is a guest", { type: "product", unitCents: 1000, qty: 1 }, { tier: ["gold"] }, 1080],
++];
++
++for (const [name, line, customer, cents] of priced) {
++  test(name, () => {
++    assert.equal(lineTotal(line, customer), cents);
++  });
++}
++
++for (const type of ["refund", "constructor", "__proto__", undefined]) {
++  test(`line type ${type} is rejected`, () => {
++    assert.throws(() => lineTotal({ type, unitCents: 1000, qty: 1 }), { message: `unknown line type: ${type}` });
++  });
++}
++
++test("invoice prices every line for the customer", () => {
++  const lines = [
++    { type: "product", unitCents: 1000, qty: 1, taxable: false },
++    { type: "service", unitCents: 5000, hours: 2 },
++  ];
++  assert.equal(invoiceTotal(lines, gold), 9900);
++});

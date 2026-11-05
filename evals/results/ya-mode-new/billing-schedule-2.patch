@@ -1,0 +1,176 @@
+diff --git a/README.md b/README.md
+index f286401..0d1326d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,5 @@
+ # billing-kit
+ 
+-Invoice helpers for the shop backend: money parsing, CSV order import, discount codes, and line pricing.
++Invoice helpers for the shop backend: money parsing, CSV order import, discount codes, line pricing, and subscription billing dates.
+ 
+ All amounts are integer cents. Run the tests with `npm test`.
+diff --git a/src/index.js b/src/index.js
+index afb19c5..5d503d9 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -2,3 +2,4 @@ export { toCents, formatCents } from "./money.js";
+ export { parseOrderCsv } from "./import.js";
+ export { parseDiscount, applyDiscount } from "./discount.js";
+ export { lineTotal, invoiceTotal } from "./pricing.js";
++export { nextBillingDates } from "./schedule.js";
+diff --git a/src/schedule.js b/src/schedule.js
+new file mode 100644
+index 0000000..8ab9bea
+--- /dev/null
++++ b/src/schedule.js
+@@ -0,0 +1,49 @@
++const STEPS = new Map([
++  ["weekly", (start, n) => addDays(start, 7 * n)],
++  ["monthly", (start, n) => addMonths(start, n)],
++  ["yearly", (start, n) => addMonths(start, 12 * n)],
++]);
++
++// Every date is counted from startDate, not from the previous charge, so a
++// customer who signed up on the 31st gets the 31st back after a short month.
++export function nextBillingDates(startDate, interval, count) {
++  const start = parseDate(startDate);
++  const step = STEPS.get(interval);
++  if (!step) throw new Error(`bad interval: ${interval}`);
++  if (!Number.isInteger(count) || count < 0) throw new Error(`bad count: ${count}`);
++
++  const dates = [];
++  for (let n = 1; n <= count; n++) dates.push(formatDate(step(start, n)));
++  return dates;
++}
++
++function addDays(start, days) {
++  return utcDate(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + days);
++}
++
++function addMonths(start, months) {
++  const year = start.getUTCFullYear();
++  const month = start.getUTCMonth() + months;
++  const lastDay = utcDate(year, month + 1, 0).getUTCDate();
++  return utcDate(year, month, Math.min(start.getUTCDate(), lastDay));
++}
++
++// Date.UTC would read years 0-99 as 19xx.
++function utcDate(year, month, day) {
++  const date = new Date(0);
++  date.setUTCFullYear(year, month, day);
++  return date;
++}
++
++function parseDate(text) {
++  const match = typeof text === "string" && /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
++  if (!match) throw new Error(`bad date: ${text}`);
++  const date = utcDate(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
++  if (formatDate(date) !== text) throw new Error(`bad date: ${text}`);
++  return date;
++}
++
++function formatDate(date) {
++  if (date.getUTCFullYear() > 9999) throw new Error("billing date is past year 9999");
++  return date.toISOString().slice(0, 10);
++}
+diff --git a/test/schedule.test.js b/test/schedule.test.js
+new file mode 100644
+index 0000000..63bf13d
+--- /dev/null
++++ b/test/schedule.test.js
+@@ -0,0 +1,95 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { nextBillingDates } from "../src/index.js";
++
++test("weekly dates cross month and year ends", () => {
++  assert.deepEqual(nextBillingDates("2025-12-20", "weekly", 3), ["2025-12-27", "2026-01-03", "2026-01-10"]);
++});
++
++test("weekly dates include a leap day", () => {
++  assert.deepEqual(nextBillingDates("2024-02-22", "weekly", 2), ["2024-02-29", "2024-03-07"]);
++});
++
++test("monthly dates cross a year end", () => {
++  assert.deepEqual(nextBillingDates("2025-11-15", "monthly", 3), ["2025-12-15", "2026-01-15", "2026-02-15"]);
++});
++
++test("a month-end signup charges on the last day of short months and returns to the 31st", () => {
++  assert.deepEqual(nextBillingDates("2025-01-31", "monthly", 5), [
++    "2025-02-28",
++    "2025-03-31",
++    "2025-04-30",
++    "2025-05-31",
++    "2025-06-30",
++  ]);
++});
++
++test("a month-end signup gets February 29 in a leap year", () => {
++  assert.deepEqual(nextBillingDates("2024-01-31", "monthly", 2), ["2024-02-29", "2024-03-31"]);
++});
++
++test("a signup on the 30th only moves in February", () => {
++  assert.deepEqual(nextBillingDates("2025-01-30", "monthly", 2), ["2025-02-28", "2025-03-30"]);
++});
++
++test("a signup on a short month's last day keeps that day", () => {
++  assert.deepEqual(nextBillingDates("2025-02-28", "monthly", 2), ["2025-03-28", "2025-04-28"]);
++});
++
++test("yearly dates keep the signup day", () => {
++  assert.deepEqual(nextBillingDates("2025-03-15", "yearly", 2), ["2026-03-15", "2027-03-15"]);
++});
++
++test("a February 29 signup charges on February 28 and returns in leap years", () => {
++  assert.deepEqual(nextBillingDates("2024-02-29", "yearly", 5), [
++    "2025-02-28",
++    "2026-02-28",
++    "2027-02-28",
++    "2028-02-29",
++    "2029-02-28",
++  ]);
++});
++
++test("century years follow the leap year rule", () => {
++  assert.equal(nextBillingDates("2096-02-29", "yearly", 4).at(-1), "2100-02-28");
++  assert.equal(nextBillingDates("1996-02-29", "yearly", 4).at(-1), "2000-02-29");
++});
++
++test("years before 100 stay in their century", () => {
++  assert.deepEqual(nextBillingDates("0050-01-31", "monthly", 1), ["0050-02-28"]);
++});
++
++test("a count of zero returns nothing", () => {
++  assert.deepEqual(nextBillingDates("2025-01-31", "monthly", 0), []);
++});
++
++test("dates that do not exist are rejected", () => {
++  for (const date of ["2025-02-29", "2100-02-29", "2025-04-31", "2025-13-01", "2025-00-10", "2025-01-00"]) {
++    assert.throws(() => nextBillingDates(date, "monthly", 1), /bad date/, date);
++  }
++});
++
++test("dates in any other format are rejected", () => {
++  const dates = ["2025-1-31", "2025/01/31", "2025-01-31T00:00:00Z", " 2025-01-31", "2025-01-31\n", "", null, undefined];
++  for (const date of [...dates, 20250131, new Date(0), ["2025-01-31"]]) {
++    assert.throws(() => nextBillingDates(date, "monthly", 1), /bad date/);
++  }
++});
++
++test("unknown intervals are rejected", () => {
++  for (const interval of ["daily", "Monthly", "", "constructor", null, undefined, ["monthly"]]) {
++    assert.throws(() => nextBillingDates("2025-01-31", interval, 1), /bad interval/);
++  }
++});
++
++test("counts that are not whole and non-negative are rejected", () => {
++  for (const count of [-1, 1.5, NaN, Infinity, "3", null, undefined]) {
++    assert.throws(() => nextBillingDates("2025-01-31", "monthly", count), /bad count/);
++  }
++});
++
++test("dates past year 9999 are rejected instead of leaving the format", () => {
++  assert.deepEqual(nextBillingDates("9998-12-31", "yearly", 1), ["9999-12-31"]);
++  assert.throws(() => nextBillingDates("9999-12-31", "yearly", 1), /past year 9999/);
++  assert.throws(() => nextBillingDates("9999-12-31", "weekly", Number.MAX_SAFE_INTEGER), /past year 9999/);
++});

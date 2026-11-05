@@ -1,0 +1,51 @@
+diff --git a/src/money.js b/src/money.js
+index 0fc432b..2ba5a6b 100644
+--- a/src/money.js
++++ b/src/money.js
+@@ -1,5 +1,5 @@
+ export function toCents(amount) {
+-  return Math.floor(parseFloat(amount) * 100);
++  return Math.round(parseFloat(amount) * 100);
+ }
+ 
+ export function formatCents(cents) {
+diff --git a/test/import.test.js b/test/import.test.js
+index ef01fe8..d8c6145 100644
+--- a/test/import.test.js
++++ b/test/import.test.js
+@@ -10,6 +10,11 @@ test("order rows become lines", () => {
+   ]);
+ });
+ 
++test("a 19.99 unit price stays 19.99", () => {
++  const [line] = parseOrderCsv("sku,qty,price\nA-1,1,19.99\n");
++  assert.equal(line.unitCents, 1999);
++});
++
+ test("a malformed row names its line", () => {
+   assert.throws(() => parseOrderCsv("sku,qty,price\nA-1,x,1"), /row 2/);
+ });
+@@ -18,4 +23,5 @@ test("percent and fixed discounts", () => {
+   assert.equal(applyDiscount(2000, parseDiscount("10%")), 1800);
+   assert.equal(applyDiscount(2000, parseDiscount("5")), 1500);
+   assert.equal(applyDiscount(300, parseDiscount("5")), 0);
++  assert.equal(applyDiscount(1000, parseDiscount("4.35")), 565);
+ });
+diff --git a/test/money.test.js b/test/money.test.js
+index 0c13099..5f4a8d2 100644
+--- a/test/money.test.js
++++ b/test/money.test.js
+@@ -7,6 +7,13 @@ test("whole and half amounts convert to cents", () => {
+   assert.equal(toCents("2.50"), 250);
+ });
+ 
++test("every two-decimal amount converts to its exact cents", () => {
++  for (let cents = -100000; cents <= 100000; cents++) {
++    const text = formatCents(cents);
++    assert.equal(toCents(text), cents, text);
++  }
++});
++
+ test("cents format with two decimals and a sign", () => {
+   assert.equal(formatCents(1999), "19.99");
+   assert.equal(formatCents(5), "0.05");
