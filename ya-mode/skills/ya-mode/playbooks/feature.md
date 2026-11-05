@@ -6,7 +6,7 @@
 2. Run **Implement** and **Tests**.
 3. Verify on the matching surface. "Inconclusive" or wrong-surface is not a pass. Flag it.
 4. Run **Gates**, then **Review**.
-5. Commit small, ordered units (**principle-sequence-verifiable-units**).
+5. Commit small, ordered units (**Verify in small units**).
 6. Run **Opening a PR**.
 
 **Reply:** what you built, what you chose and why, the review result, open decisions.

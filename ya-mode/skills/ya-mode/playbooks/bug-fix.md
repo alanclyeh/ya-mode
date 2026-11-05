@@ -11,7 +11,7 @@ Be scientific. Every shipped line traces to runtime evidence. Belt-and-suspender
 5. Fix it per **Implement**.
 6. Verify on the same surface. The original repro now passes. "Inconclusive" or wrong-surface is not a pass. Flag it. Unit tests show branch behavior, not bug absence.
 7. Run **Gates**, then **Review**.
-8. Commit the failing test before the fix, so history shows the bug (**principle-sequence-verifiable-units**).
+8. Commit the failing test before the fix, so history shows the bug (**Verify in small units**).
 9. Run **Opening a PR**.
 
 **Reply:** what was broken, root cause, fix, how you verified, the review result. Quote the decisive failing and passing output, trimmed to the assertion and the counts.

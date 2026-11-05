@@ -13,9 +13,9 @@ Use the session's task-tracking tools for the todolist. On Claude Code these are
 
 ## Non-negotiables
 
-The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session. While ya-mode runs, its rules win over any other session mandate, such as ponytail, where the two conflict.
+While ya-mode runs, its rules win over any other session mandate, such as ponytail, where the two conflict.
 
-Remaining triggers:
+Triggers:
 
 - Your first message on a task → tell the user, in your own words, their goal, the problem they are solving, and, if the task ships a change, the smallest change you expect to meet it. Don't wait for confirmation on this message. If the evidence rules out the change the user asked for, show it and stop. Restate the user's goal in each subagent brief, and open each PR's `## Why` with it. Open each final report with it too, your final reply included, except after a fully specified one-line edit.
 - "Are we sure?" or a question about how a subsystem works → the **how** skill.
@@ -42,12 +42,12 @@ Feature, Bug fix, Refactoring, and Perf issue run these steps. Each playbook say
 
 Read the code the change touches, its callers, and its tests yourself. Use the **how** skill only when the subsystem is too large to read in this session. Then post a short plan and stop until the user approves it:
 
-- The data shape and its organizing structure, per **principle-model-the-domain**.
+- The data shape and its organizing structure, per **Model the domain**.
 - The files to change.
 - The test plan.
 - Whether the work splits, per **Implement**.
 
-A change to one file that touches no public interface needs no plan. When the user said 「不用問」, 「全自動」, "don't ask", or "fully autonomous", post the plan and continue without waiting, for the rest of the session. No other reason skips the approval, and **principle-never-block-on-the-human** does not waive it.
+A change to one file that touches no public interface needs no plan. When the user said 「不用問」, 「全自動」, "don't ask", or "fully autonomous", post the plan and continue without waiting, for the rest of the session. No other reason skips the approval, and **Stay unblocked** does not waive it.
 
 Run the **architect** skill only when the change adds or changes an interface between modules and two or more designs are reasonable. Otherwise choose the design yourself and name it in the plan.
 
@@ -60,7 +60,7 @@ When you delegate, spawn one `ya:ya-agent` per piece with `isolation: "worktree"
 ### Tests
 
 - A bug fix starts with a failing test.
-- A feature or refactor gets a behavior test for every new branch, loop, and parser, written whenever it fits the work (**principle-test-behavior-not-implementation**).
+- A feature or refactor gets a behavior test for every new branch, loop, and parser, written whenever it fits the work (**Prove it works**).
 - Skip a test only when the project has no test infrastructure, and write the reason in the reply.
 
 ### Gates
@@ -81,46 +81,7 @@ Report the rounds, the fixes, and every dismissal with its reason.
 
 ## Principles
 
-Read the leaf skill in full for any principle you apply. Each entry names when it applies. Each leaf is the **principle-<title>** skill, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its name.
-
-**Core**
-
-- **Laziness Protocol.** Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
-- **Foundational Thinking.** Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
-- **Redesign from First Principles.** Integrating a new requirement into an existing design. Redesign as if it had been foundational from day one.
-- **Attack the Premise.** Two or more fixes that share one premise have failed the same gate. Write the premise down and test it directly before you write another fix that assumes it.
-- **Subtract Before You Add.** Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
-- **Minimize Reader Load.** Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
-- **Outcome-Oriented Execution.** Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
-- **Experience First.** Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
-- **Exhaust the Design Space.** A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
-- **Build the Lever.** Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
-
-**Architecture**
-
-- **Model the Domain.** Writing stateful logic, or code that branches a lot or repeats a shape assumption across files. Encode the domain in a structure (state machine, typed model, table or registry, reducer, boundary, the right collection) instead of scattered conditionals.
-- **Boundary Discipline.** Wiring validation, error handling, or framework adapters. Guards at system boundaries, trust internal types, keep business logic pure.
-- **Type System Discipline.** Designing types or a signature in any typed language. Make illegal states unrepresentable, brand primitives, parse external data at boundaries.
-- **Make Operations Idempotent.** Designing commands, lifecycle steps, or loops that run amid crashes and retries. Converge to the same end state.
-- **Migrate Callers Then Delete Legacy APIs.** Introducing a new internal API while old callers exist. Migrate and delete in one wave.
-- **Separate Before Serializing Shared State.** Concurrent actors might write the same file, branch, key, or object. Eliminate the sharing first.
-
-**Verification**
-
-- **Prove It Works.** After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
-- **Fix Root Causes.** Debugging. Trace each symptom back to the first place the system went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
-- **Sequence Work into Verifiable Units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
-- **Test Behavior, Not Implementation.** Writing, changing, or keeping a test. Assert what the code's users can observe, so the test fails when that behavior breaks and keeps passing when only the internals change.
-- **Explain the Number.** Apply before you measure, and before you trust, report, or act on a number you measured (a speedup, a regression, a throughput, a latency, or an eval result). Find what limits it, and rule out that it measured something other than the work you think.
-
-**Delegation**
-
-- **Guard the Context Window.** Context fills up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents, keep summaries in the main thread.
-- **Never Block on the Human.** Tempted to ask "should I do X?" on reversible work. Proceed, present the result, let the human course-correct.
-
-**Meta**
-
-- **Encode Lessons in Structure.** You catch yourself writing the same instruction a second time. Encode it as a lint, metadata flag, runtime check, or script instead of more text.
+Read [the principles](references/principles.md) once at the start of a task, and apply what fits.
 
 ## Autonomy
 
@@ -136,9 +97,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Use `subagent_type: "ya:ya-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers), except the reviewers in **Review**. Plugin agents register under the plugin namespace. The bare name `ya-agent` errors. The chat that receives `/ya-mode` runs the playbook. Never spawn a `ya-agent` to run the playbook itself. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, don't override to `ya-agent`.
 
-**Defaults for every `Agent` call.** `run_in_background: true` (a steer or resume of a running agent too, because a foreground call holds your turn while other reports wait), full tool access (do not pick a subagent_type that strips MCP), file pointers not inlined context, explicit model per role (configurable via `/setup-ya`. Role defaults in [Models](#models), with "judgment and prose" covering prose and judgment). Code delegates tier by difficulty. The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) go to your strongest-judgment model (default in [Models](#models)), whether the task needs judgment on vague intent or is a precisely specified sequence of steps to execute to the letter. Trivial mechanical edits (renames, formatting, import moves, a fully specified one-line change) go to the `mechanical edits` role. Every other code change uses its playbook's role line, and prose and judgment use the single-role default. Multi-model panels run the configured panel for diversity, with defaults enumerated in each panel skill's Models section (`arena`, `architect`, `interrogate`). Per-role `/setup-ya` lines override these defaults and the model choices in the routed skills (`how`, `why`, `arena`, `swarm`, `architect`, `interrogate`, `reflect`). A role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent session's model (omit `model` on the `Agent` call).
-
-**Match the model to the job.** Before each spawn, start from the role's line or default and pick the reasoning level the job needs, set as [Reasoning effort](#reasoning-effort) describes. The role's `@level`, or the sheet's `default effort` line, sets its starting level, and `session` starts from the session's level. Raise it one step, up to max, for the hardest or subtlest work. Lower it one step for judgment and two or more steps for routine work. Claude Code sets fast mode for the whole session, so a spawn changes only its effort. Verification is the exception and stays on the `swarm workers` model and effort (default in the **swarm** skill's Models section). Change only the effort level, and keep the model the role names, so a diverse panel stays diverse. If the model does not take that level, use its nearest level. A role on `auto` or `inherit-parent` stays on the parent model. If the `Agent` tool rejects the adjusted level, do not try another level. Use the role's line or default and say so. If the `Agent` tool rejects that too, continue with the calling skill's fallback. A slug counts as rejected once an `Agent` error says that the model is not valid, or leaves the slug out of its list of valid slugs. Never pass a rejected slug, and skip any fallback whose slug is already rejected. When the calling skill has no fallback, use the closest valid slug of the role's family from the error's list of valid slugs, or omit `model` so the subagent runs on the parent model when the list has none. When the calling skill's fallback runs out of slugs without saying what to do next, omit `model` too. Say so in both cases.
+**Defaults for every `Agent` call.** `run_in_background: true` (a steer or resume of a running agent too, because a foreground call holds your turn while other reports wait), full tool access (do not pick a subagent_type that strips MCP), file pointers not inlined context, and the model and effort of its role in [Models](#models).
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. A second opinion is the same prompt against a different model. Agreement is high-signal.
 
@@ -193,17 +152,15 @@ Work the user steps away from to trust later routes to the **figure-it-out** ski
 
 ## Models
 
-Role defaults. A matching role line in the `ya-models.md` override sheet overrides each at runtime; `/setup-ya` writes it.
+Role defaults. A line in `ya-models.md` overrides a role, and `/setup-ya` writes it. Other skills read the same table. Use each value as written. Do not adjust it for difficulty.
 
-- feature, refactoring: `sonnet`
-- bug-fix: `opus`
-- perf-issue: `opus`
-- hillclimb: `opus`
-- judgment and prose: `opus`
+- implementer: `sonnet`
 - reviewers: `opus`, `sonnet`
-- strongest judgment: `fable`
-- mechanical edits: `haiku`
+- explorer: `sonnet`
+- swarm workers: `sonnet`
+- arena runners: `opus`, `sonnet`
+- arena cross-judge pool: `opus`, `sonnet`
+- architect runners: `opus`, `sonnet`
+- interrogate reviewers: `opus`, `sonnet`
 
-## Reasoning effort
-
-A role value in the override sheet may name a reasoning effort after its model, as in `opus @xhigh`. Levels on Claude Code: `low`, `medium`, `high`, `xhigh`, `max`. Which ones apply depends on the model. A value without `@` takes the sheet's `default effort` line, a level or `session`, and `session` when the sheet has no such line. `session` sets no effort, so the dispatch is the usual one. Strip the suffix before reading the model: `inherit-parent` or `auto` still omits `model` at every level, and a model name is passed as `model`. Pass the level as the dispatch's effort field and keep the `subagent_type` you would otherwise use. That is `effort` on the `Agent` call.
+A value is a model name, with an optional effort as in `opus @high`. Pass the name as `model` and the level as `effort`. A list runs one subagent per entry. If the `Agent` tool rejects a model name, omit `model` so that subagent runs on the session's model, and tell the user.

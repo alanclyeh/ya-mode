@@ -26,7 +26,7 @@ Each run uses `--setting-sources project,local`, so the user's own plugins and h
 
 ## Results
 
-`results/<label>/summary.tsv` has one row per run: acceptance and project-suite pass counts, commits, whether the tree was left dirty, diff size, cost, minutes, turns, subagents spawned, and refused tool calls. `<task>-<n>.patch` is the full change and `<task>-<n>.json` the CLI result.
+`results/<label>/summary.tsv` has one row per run: acceptance and project-suite pass counts, commits, whether the tree was left dirty, diff size, cost, API minutes, turns, subagents spawned, and refused tool calls. `api_minutes` sums API time across every agent. The CLI's `duration_ms` covers only the last stretch of a run that waits on background agents, so it understates those runs. `<task>-<n>.patch` is the full change and `<task>-<n>.json` the CLI result.
 
 The score reads the checked-out branch. Work a run leaves on another branch or worktree counts as not delivered.
 

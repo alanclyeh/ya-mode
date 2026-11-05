@@ -27,7 +27,7 @@ Check the state that changes the answer, and mention it only when it does:
 - No project `verify` or `verify-*` skill or other app harness means agents have no scripted way to drive the app. Mention `/create-verification-skill` when the question is about proving a change works.
 - No formal verification skill in the project means no property is checked past what tests reach. Mention `/create-formal-verification-skill` when the question is about a race, an invariant, or another case tests rarely hit. When one exists and the code it covers changed after the commit it records as last in sync, mention `/maintain-formal-verification-skill` if the question touches that code.
 
-When the model sheet is missing and it matters, ask whether the user wants to pick a model for each role and a default effort now. It matters when the user is new, the question is about setup or cost, or the answer depends on which models run. Ask at most once per chat. If the need is also unclear, ask both questions together. Offer two choices:
+When the model sheet is missing and it matters, ask whether the user wants to pick a model for each role now. It matters when the user is new, the question is about setup or cost, or the answer depends on which models run. Ask at most once per chat. If the need is also unclear, ask both questions together. Offer two choices:
 
 - Now: give them `/setup-ya` to type, and answer their question too.
 - Later: answer their question, and add one line saying every role keeps its default model until they run `/setup-ya`.
@@ -38,7 +38,7 @@ When the model sheet is missing and it matters, ask whether the user wants to pi
 2. Read [`/setup-ya`](../setup-ya/SKILL.md) before explaining model choices, effort, or sheet loading. ya has no automatic routing: ya-mode runs only when the user types it. After the model sheet, setup offers once each to generate a verification skill and a formal verification skill for the project, unless the project already has one.
 3. Offer a first task prompt with a goal and a check that can pass or fail, per [`references/prompting.md`](references/prompting.md).
 
-If cost is the worry, say where the tokens go and how to spend less. ya spends extra tokens on subagents and review panels. Rerun `/setup-ya` and pick a lower effort or cheaper models. A role set to `auto` or `inherit-parent` runs on the chat's model, which costs less when the chat runs on a cheaper model. A shorter panel list runs fewer subagents, one for each entry. Save `/ya-mode` for work that needs rigor.
+If cost is the worry, say where the tokens go and how to spend less. ya spends extra tokens on subagents and review panels. Rerun `/setup-ya` and pick a lower effort or cheaper models. A shorter panel list runs fewer subagents, one for each entry. Save `/ya-mode` for work that needs rigor.
 
 ## Start a task with `/ya-mode`
 
@@ -79,13 +79,13 @@ The default answer is `/ya-mode`, which runs most of the others when its steps n
 | Vet a performance number before reporting or acting on it | [`/benchmark-checklist`](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change, or one to review after stepping away | [`/figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep a decision log during a run, and review it afterward | [`/show-me-your-work`](../show-me-your-work/SKILL.md) |
-| Pick a model for each role and a default effort | [`/setup-ya`](../setup-ya/SKILL.md) |
+| Pick a model for each role | [`/setup-ya`](../setup-ya/SKILL.md) |
 | Turn their own working habits into a personal mode skill | [`/automate-me`](../automate-me/SKILL.md) |
 | Turn what a finished task taught into skill edits | [`/reflect`](../reflect/SKILL.md) |
 | Stop agents from repeating the same mistakes in this repo | [`/correct`](../correct/SKILL.md) |
 | Find their way around ya | `/ya-help` |
 
-If a skill directory next to this one is missing from the table, read its frontmatter and route by its description. The `principle-*` directories are covered under principles below.
+If a skill directory next to this one is missing from the table, read its frontmatter and route by its description.
 
 Close calls:
 
@@ -114,7 +114,7 @@ Playbooks are step lists inside `/ya-mode`, not skills, so they have no slash co
 
 ya has no planning skill. Claude Code's plan mode works alongside it. For work that spans phases or stacked PRs, asking `/ya-mode` for a plan runs the [Multi-phase plan playbook](../ya-mode/playbooks/multi-phase-plan.md), which writes the plan and doesn't implement it. For a design question, the Prototype playbook or `/architect` settles it in code first.
 
-Principles are one-rule skills that `/ya-mode` reads and cites in its replies. The user rarely invokes one. They steer with the names instead, as in "apply prove it works. show me the real output." On Claude Code the `principle-*` leaves are hidden from the slash menu and `/ya-mode` reads them by path; other runtimes may list them in their skill picker. The [Principles index](../ya-mode/SKILL.md#principles) lists them.
+The [principles](../ya-mode/references/principles.md) are ten short rules that `/ya-mode` reads once at the start of a task. Steer with their names, as in "apply prove it works. show me the real output."
 
 ## Fix a run that went wrong
 
@@ -127,7 +127,7 @@ Principles are one-rule skills that `/ya-mode` reads and cites in its replies. T
 | A skill didn't load on its own | Read its description and the current runtime's skill-loading instructions. Invoke it explicitly when needed; `/ya-mode` doesn't run every skill. |
 | Parallel agents overwrote each other | Give each agent its own worktree. |
 | An overnight run moved but finished nothing | Read [Autonomous run](../ya-mode/playbooks/autonomous-run.md) and the current runtime's wake mechanism. Give the run a check that can pass or fail. |
-| The reply claims success from a green build | Ask for the real command, flow, stored value, or profile. That's the prove-it-works principle. |
+| The reply claims success from a green build | Ask for the real command, flow, stored value, or profile. That's the Prove it works principle. |
 
 For a run that drifts, [`references/prompting.md`](references/prompting.md) has one-line steers, and [`references/recipes.md`](references/recipes.md) has prompts to adapt.
 
