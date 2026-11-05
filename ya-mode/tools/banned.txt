@@ -7,3 +7,6 @@ watch-pr
 ship-pr
 thermo-nuclear-review-subagent
 thermo-nuclear-code-quality-review-subagent
+deslop
+no-comments
+comment-sicko

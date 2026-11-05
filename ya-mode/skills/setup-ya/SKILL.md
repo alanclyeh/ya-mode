@@ -49,6 +49,7 @@ bug-fix: sonnet @high
 perf-issue: sonnet @high
 hillclimb: sonnet @high
 judgment and prose: opus @medium
+reviewers: opus @medium, sonnet @high
 strongest judgment: opus @medium
 mechanical edits: haiku
 how explorer: sonnet @high

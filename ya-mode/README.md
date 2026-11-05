@@ -19,7 +19,7 @@ claude --plugin-dir /Users/alan.yeh/Workspace/my_projects/ya_mode/ya-mode
 - `skills/ya-mode/` is the entry skill. `playbooks/` holds one file per task type, `references/` the shared references, `scripts/` the node tooling for resume, plan and playbook checks, and worktree audits.
 - `skills/principle-*/` are the principles ya-mode cites.
 - The other `skills/*/` are leaf skills, including `python-best-practices`, `react-best-practices`, and `node-best-practices`, and the Chinese writing rules in `skills/unslop/references/zh.md`.
-- `agents/` holds the subagent definitions, with `ya:ya-agent` as the delegate.
+- `agents/` holds the subagent definitions: `ya:ya-agent` is the delegate and `ya:ya-reviewer` the independent reviewer.
 - `tools/refgraph.mjs` maps skill references (`edges`, `closure <root>`) and checks for banned names and broken relative links (`check`).
 
 ## Check

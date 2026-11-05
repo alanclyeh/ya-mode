@@ -9,7 +9,7 @@ Bundled skills live at `../<name>/SKILL.md` from this file, so put this file's a
 
 ## Task tracking
 
-Use the session's task-tracking tools for the todolist. On Claude Code these are `TaskCreate` and `TaskUpdate`, or `TodoWrite` when configured. Availability depends on the model; `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` enables them through the environment or a project's `.claude/settings.local.json` `env` block. See the [task-tool documentation](https://code.claude.com/docs/en/tools-reference#task-tool-availability). If no task-tracking tool is available, keep an uncommitted `todo.md` Markdown checklist in the work dir, next to the decision trail, with the playbook steps verbatim and each `skip: <reason>` line. When several sessions share the checkout, name it `.audit/<task-slug>.todo.md`, beside that session's `.audit/<task-slug>.tsv` trail, so they never write one file.
+Use the session's task-tracking tools for the todolist. On Claude Code these are `TaskCreate` and `TaskUpdate`, or `TodoWrite` when configured. If none is available, keep an uncommitted `todo.md` with the playbook steps verbatim and each `skip: <reason>` line.
 
 ## Non-negotiables
 
@@ -17,27 +17,67 @@ The Principles section below grounds every trigger. In your reply, name each pri
 
 Remaining triggers:
 
-- Your first message on a task → tell the user, in your own words, their goal, the problem they are solving, and, if the task ships a change, the smallest change you expect to meet it. Don't wait for confirmation. If the evidence rules out the change the user asked for, show it and stop. Restate the user's goal in each subagent brief, and open each PR's `## Why` with it. Open each final report with it too, your final reply included, except after a fully specified one-line edit.
-- Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
+- Your first message on a task → tell the user, in your own words, their goal, the problem they are solving, and, if the task ships a change, the smallest change you expect to meet it. Don't wait for confirmation on this message. If the evidence rules out the change the user asked for, show it and stop. Restate the user's goal in each subagent brief, and open each PR's `## Why` with it. Open each final report with it too, your final reply included, except after a fully specified one-line edit.
+- "Are we sure?" or a question about how a subsystem works → the **how** skill.
 - About to `AskUserQuestion` on a "which approach", "how should I", or "what should this do" fork → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. Under a full-autonomy grant, decide a call the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, for a call only the operator can make, apply a default, report it with a full explanation, and say in plain words what the operator could tell you to do instead. The operator answers in their own words. Never give a shorthand token to type back. Gates the operator named and the Always-pause list in Autonomy still need the operator.
-- Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
-- Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
+- Any code → the [Code flow](#code-flow).
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
-- Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
-- Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
 - Any prose surface, your reply to the user included → the **unslop** skill. Write the reply per **Writing the reply**. Agent-facing prose also follows the **plugin-dev:skill-development** skill (Claude Code's authoring guidance for SKILL.md files).
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`), on top of **unslop**.
-- Before commit → the **deslop** skill (`/deslop`).
-- Before review → the **no-comments** skill (`/no-comments`).
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 - Shipping UI / IDE / CLI → the driver skill. `run` ships with Claude Code and the model can invoke it for CLIs, TUIs, servers, and browser or Electron apps. The bundled `verify` runs only when the user types `/verify`, so for UIs use the project `verify` skill at `.claude/skills/verify/` (generate it with `/create-verification-skill`) and fall back to `run` when the repo has none. For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
-- Any PR-status request ("babysit this", "get it green", "address the review-bot comments", and most often "check on PR X" or "anything outstanding on X") → the **Babysit** playbook (`playbooks/babysit.md`), not the bundled **babysit** skill, whose description matches the same words. Never triggered by merely opening a PR. Declare its mode before polling. The playbook's step 1 owns the request-to-mode mapping. Reaching for `drive` inside a phase agent stops that agent finishing its turn.
+- Any PR-status request ("babysit this", "get it green", "address the review-bot comments", and most often "check on PR X" or "anything outstanding on X") → the **Babysit** playbook (`playbooks/babysit.md`). Never triggered by merely opening a PR.
 - Asked to merge, land, or ship → step 9 of the **Babysit** playbook (`playbooks/babysit.md`). Green is not safe. Merge only a head that meets every merge-ready condition in its step 6.
 - An automated PR-review bot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
 - Deploying to a managed platform (Railway, Fly, Vercel, Heroku, and the like) → load that platform's skill, project-local or installed, before running its CLI.
 - A defect found mid-task → severity decides its artifact, not where it turned up. A correctness or data gap gets a tracked issue even when it surfaces while writing a closure doc; a cosmetic margin can stay in the doc.
 - Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
 - Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "/loop until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record. Keep it local otherwise.
+
+## Code flow
+
+Feature, Bug fix, Refactoring, and Perf issue run these steps. Each playbook says where.
+
+### Plan
+
+Read the code the change touches, its callers, and its tests yourself. Use the **how** skill only when the subsystem is too large to read in this session. Then post a short plan and stop until the user approves it:
+
+- The data shape and its organizing structure, per **principle-model-the-domain**.
+- The files to change.
+- The test plan.
+- Whether the work splits, per **Implement**.
+
+A change to one file that touches no public interface needs no plan. When the user said 「不用問」, 「全自動」, "don't ask", or "fully autonomous", post the plan and continue without waiting, for the rest of the session. No other reason skips the approval, and **principle-never-block-on-the-human** does not waive it.
+
+Run the **architect** skill only when the change adds or changes an interface between modules and two or more designs are reasonable. Otherwise choose the design yourself and name it in the plan.
+
+### Implement
+
+Write the code in this session. Delegate only when the plan splits the work into two or more pieces that touch disjoint files and can run in parallel. A large change whose parts are coupled stays here.
+
+When you delegate, spawn one `ya:ya-agent` per piece with `isolation: "worktree"`, and name its files, data shape, and success criteria. That isolation branches from the remote default branch unless the `worktree.baseRef` setting is `"head"`. When a piece builds on commits the default branch lacks, commit them, create the worktree with `git worktree add <path> -b <branch> HEAD`, and name that base in the brief. Do not write files in a worktree a delegate holds. Merge the pieces here, then continue.
+
+### Tests
+
+- A bug fix starts with a failing test.
+- A feature or refactor gets a behavior test for every new branch, loop, and parser, written whenever it fits the work (**principle-test-behavior-not-implementation**).
+- Skip a test only when the project has no test infrastructure, and write the reason in the reply.
+
+### Gates
+
+Run the project's tests, typecheck, and lint. Find the commands in its manifest, Makefile, CI config, or README. Fix every failure the change causes. Report a failure the change did not cause, and report any gate you could not run. Run the gates again after every review fix.
+
+### Review
+
+Every code change gets an independent review. A diff with no code in it does not.
+
+1. Spawn one `ya:ya-reviewer` per model on the `reviewers` line, plus any model the user named, all in one message, with `model` set. Give each the same brief: the user's request verbatim, the plan, and the base commit. Do not include your reasoning.
+2. Fix every finding two or more reviewers raised.
+3. Decide each finding only one reviewer raised. Fix it, or dismiss it with a written reason. Your own disagreement needs evidence from the code.
+4. If you changed code, run **Gates** and start a new round with fresh reviewers. Stop when a round leaves no blocking finding open.
+5. Run at most three rounds. If a blocking finding remains after round three, stop and list it for the user with each reviewer's evidence.
+
+Report the rounds, the fixes, and every dismissal with its reason.
 
 ## Principles
 
@@ -88,13 +128,13 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 **Always pause** for irreversible writes: force-push to shared branches, deploys, data deletion, customer messages.
 
-**Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
+**Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" / 「不用問」 / 「全自動」 → keep going.
 
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Agreement is not the default, candor over sycophancy.
 
 ## Subagents
 
-**Use `subagent_type: "ya:ya-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). Plugin agents register under the plugin namespace. The bare name `ya-agent` errors. The chat that receives `/ya-mode` runs the playbook. Never spawn a `ya-agent` to run the playbook itself. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, don't override to `ya-agent`.
+**Use `subagent_type: "ya:ya-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers), except the reviewers in **Review**. Plugin agents register under the plugin namespace. The bare name `ya-agent` errors. The chat that receives `/ya-mode` runs the playbook. Never spawn a `ya-agent` to run the playbook itself. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, don't override to `ya-agent`.
 
 **Defaults for every `Agent` call.** `run_in_background: true` (a steer or resume of a running agent too, because a foreground call holds your turn while other reports wait), full tool access (do not pick a subagent_type that strips MCP), file pointers not inlined context, explicit model per role (configurable via `/setup-ya`. Role defaults in [Models](#models), with "judgment and prose" covering prose and judgment). Code delegates tier by difficulty. The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) go to your strongest-judgment model (default in [Models](#models)), whether the task needs judgment on vague intent or is a precisely specified sequence of steps to execute to the letter. Trivial mechanical edits (renames, formatting, import moves, a fully specified one-line change) go to the `mechanical edits` role. Every other code change uses its playbook's role line, and prose and judgment use the single-role default. Multi-model panels run the configured panel for diversity, with defaults enumerated in each panel skill's Models section (`arena`, `architect`, `interrogate`). Per-role `/setup-ya` lines override these defaults and the model choices in the routed skills (`how`, `why`, `arena`, `swarm`, `architect`, `interrogate`, `reflect`). A role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent session's model (omit `model` on the `Agent` call).
 
@@ -104,7 +144,7 @@ You own every subagent's work. Review the diff and write your own summary, don't
 
 **Fresh subagents by default.** Give new work to a fresh subagent with consolidated scope, meaning the original brief, every later directive, and the prior agent's report and branch. This holds for a fix round, a follow-up, and a retry. Resume, message, or queue a follow-up on an existing subagent only when the new work strictly needs state that lives in that agent and is costly to move: its local checkout, its uncommitted changes, or a process it still runs, such as a dev server or a simulator. A stop or hold order to a running agent is not reuse. A role such as a PR owner outlives its agent. Once that agent returns, a fresh agent takes the role's next round. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary. **Stop the abandoned agent first, and confirm it stopped.** In the agent listing `completed` means the completion was *notified*, not that the process exited: an agent with live background children reports completed and then resumes. Only an explicit stop ends it, and the stop tool may be deferred, so load it before you need it. The tell that one is still running is a claim about the working tree that `git status` contradicts.
 
-**A review gate stays closed when no independent reviewer can run.** An agent limit, subagent dispatch turned off, or a skills-only install can leave a required review with no reviewer. Keep the results of reviewers already dispatched. As the one exception to fresh subagents, reuse a finished reviewer only through the runtime's own follow-up action, only if it did not write the change, and only with the full current brief and head revision. A reused reviewer counts once. Never count your own review, passing tests, or CI as the independent verdict. Record `BLOCKED: independent review` in the todolist, keep merge-ready and shipping closed, and report which reviewers ran and which are missing. Work that doesn't depend on the review continues. A fan-out skill run only to explore may fall back to one labelled sequential pass.
+**Review stays closed when no independent reviewer can run.** An agent limit, subagent dispatch turned off, or a skills-only install can leave a required review with no reviewer. Keep the results of reviewers already dispatched. As the one exception to fresh subagents, reuse a finished reviewer only through the runtime's own follow-up action, only if it did not write the change, and only with the full current brief and head revision. A reused reviewer counts once. Never count your own review, passing tests, or CI as the independent verdict. Record `BLOCKED: independent review` in the todolist, keep merge-ready closed, and report which reviewers ran and which are missing. Work that doesn't depend on the review continues. A fan-out skill run only to explore may fall back to one labelled sequential pass.
 
 ## Writing the reply
 
@@ -127,7 +167,7 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 Open a todolist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific todos. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below and open its full steps at `playbooks/<title>.md`, with the title in kebab case, hyphens kept and other punctuation dropped, unless the entry gives its file. Copy its steps in verbatim.
 
-A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
+Work the user steps away from to trust later routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task.
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y.
 - **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence.
@@ -147,7 +187,7 @@ A large or cross-cutting effort (a migration across many call sites, an ambitiou
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a session restart, or imminent context compaction. The complement to Session pickup.
 - **Multi-phase or multi-PR plan.** Work that spans phases or stacked PRs. File: `playbooks/multi-phase-plan.md`.
 - **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). File: `playbooks/worktree-cleanup.md`.
-- **Opening a PR.** Invoked at the end of every other playbook.
+- **Opening a PR.** Invoked at the end of every playbook that changes code, unless the user said not to open one.
 
 **Project playbooks.** A repository can add playbooks of its own under `.agents/playbooks/`, one Markdown file each. Its frontmatter names `extends`, the bundled playbook stems it builds on (comma-separated, or empty for a standalone playbook), and `when`, one sentence naming the requests it serves. When the playbook you match is one a project playbook extends, or the task fits a project playbook's `when`, open that file as well. Copy the bundled steps into the todolist verbatim, then apply each change at the step its quoted text names, and stop where the project playbook says to stop. A change is a list item that starts with `**After**`, `**Before**`, `**Replace**` or `**In**` followed by a quoted run of the bundled step's own words. Before you apply a project playbook, run `node <plugin>/skills/ya-mode/scripts/check-playbooks.mjs` from the repository root. It fails when a project playbook extends a playbook this version lacks, or quotes step text this version no longer has, which happens when a ya upgrade rewrites a step. Report each line it prints to the user and do not guess where an unanchored change belongs.
 
@@ -160,6 +200,7 @@ Role defaults. A matching role line in the `ya-models.md` override sheet overrid
 - perf-issue: `opus`
 - hillclimb: `opus`
 - judgment and prose: `opus`
+- reviewers: `opus`, `sonnet`
 - strongest judgment: `fable`
 - mechanical edits: `haiku`
 
